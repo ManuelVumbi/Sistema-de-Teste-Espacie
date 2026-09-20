@@ -81,6 +81,7 @@ export function CandidatesManagement() {
   const [seniority, setSeniority] = useState<string>("Técnico");
   const [sector, setSector] = useState<Sector>(sectors[0] || "Industrial");
   const [accessPassword, setAccessPassword] = useState("candidato123");
+  const [showCandidatePassword, setShowCandidatePassword] = useState(false);
   const [isActive, setIsActive] = useState(true);
   const [assignedTestIds, setAssignedTestIds] = useState<string[]>([]);
 
@@ -617,12 +618,24 @@ export function CandidatesManagement() {
                   </label>
                   <div className="relative">
                     <input
-                      type="text"
+                      type={showCandidatePassword ? "text" : "password"}
                       value={accessPassword}
                       onChange={(e) => setAccessPassword(e.target.value)}
-                      placeholder="Senha do candidato"
-                      className="w-full p-3 rounded-xl bg-slate-950 border border-slate-700 text-slate-100 text-xs font-mono focus:border-emerald-500 focus:outline-hidden"
+                      placeholder="••••••••"
+                      className="w-full pl-3 pr-10 py-3 rounded-xl bg-slate-950 border border-slate-700 text-slate-100 text-xs font-mono focus:border-emerald-500 focus:outline-hidden"
                     />
+                    <button
+                      type="button"
+                      onClick={() => setShowCandidatePassword(!showCandidatePassword)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300 transition-colors"
+                      title={showCandidatePassword ? "Ocultar" : "Mostrar"}
+                    >
+                      {showCandidatePassword ? (
+                        <EyeOff className="w-4 h-4" />
+                      ) : (
+                        <Eye className="w-4 h-4" />
+                      )}
+                    </button>
                   </div>
                   <span className="text-[10px] text-slate-500">
                     Utilizada no Portal do Candidato com o BI/Passaporte.

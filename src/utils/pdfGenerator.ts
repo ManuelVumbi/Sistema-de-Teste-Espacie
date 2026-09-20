@@ -50,7 +50,7 @@ function drawEspaciePdfHeader(
   doc.setFontSize(7.5);
   doc.setTextColor(203, 213, 225); // Slate 300
   doc.text(subtitle, 60, 27);
-  doc.text("Direção de Recursos Humanos e Operações Técnicas • República de Angola", 60, 32);
+  doc.text("Direção de Recursos Humanos e Operações Técnicas", 60, 32);
 
   // 5. Right Status Badge (if provided)
   if (rightBadge) {
@@ -97,7 +97,7 @@ export function generateIndividualPdf(
     doc,
     pageWidth,
     "SISTEMA CORPORATIVO DE AVALIAÇÃO TÉCNICA E COMPETÊNCIAS",
-    "Luanda, República de Angola | www.espacie.co.ao",
+    "Luanda, Angola | www.espacie.co.ao",
     {
       text: isApproved ? "APTO" : "NÃO APTO",
       isPositive: isApproved,

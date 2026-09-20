@@ -8,17 +8,16 @@ import { TestsManagement } from "./components/admin/TestsManagement";
 import { QuestionsManagement } from "./components/admin/QuestionsManagement";
 import { ResultsManagement } from "./components/admin/ResultsManagement";
 import { ReportsManagement } from "./components/admin/ReportsManagement";
+import { AdminPasswordResetModal } from "./components/admin/AdminPasswordResetModal";
 import { CandidatePortal } from "./components/candidate/CandidatePortal";
 import { TestTakingEnvironment } from "./components/candidate/TestTakingEnvironment";
 import { Toaster } from "sonner";
 import {
   LogOut,
-  ShieldCheck,
-  User,
-  Sparkles,
+  KeyRound,
   Menu,
   X,
-  Layers,
+  Shield,
 } from "lucide-react";
 import { useState } from "react";
 
@@ -26,14 +25,11 @@ export default function App() {
   const {
     currentUser,
     activeView,
-    setActiveView,
     logout,
-    tests,
-    candidates,
-    results,
   } = useAppStore();
 
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [isResetPasswordOpen, setIsResetPasswordOpen] = useState(false);
 
   // If user is not authenticated, show login
   if (!currentUser) {
@@ -98,22 +94,43 @@ export default function App() {
           </div>
         </div>
 
-        {/* Right Header: Admin profile & logout */}
-        <div className="flex items-center gap-3">
-          <div className="hidden sm:flex flex-col text-right">
-            <span className="text-xs font-bold text-slate-200">
-              {currentUser.username}
-            </span>
-            <span className="text-[10px] text-slate-400">Administrador Geral</span>
+        {/* Centralized Admin Session & Account Hub (Single location for Reset Password & Logout) */}
+        <div className="flex items-center bg-[#071729] border border-[#17365D] rounded-2xl p-1 sm:p-1.5 gap-1.5 shadow-sm">
+          {/* User Identity */}
+          <div className="flex items-center gap-2 px-2 py-0.5">
+            <div className="w-7 h-7 rounded-xl bg-sky-500/15 border border-sky-500/30 flex items-center justify-center text-sky-400">
+              <Shield className="w-3.5 h-3.5" />
+            </div>
+            <div className="hidden sm:flex flex-col text-left">
+              <span className="text-xs font-bold text-slate-100 leading-tight">
+                {currentUser.username}
+              </span>
+              <span className="text-[10px] text-sky-400 font-medium leading-tight">
+                Administrador Geral
+              </span>
+            </div>
           </div>
 
+          <div className="h-5 w-px bg-[#17365D]" />
+
+          {/* Action 1: Redefinir Senha */}
+          <button
+            onClick={() => setIsResetPasswordOpen(true)}
+            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl hover:bg-[#0A2540] text-slate-300 hover:text-sky-300 border border-transparent hover:border-sky-500/30 text-xs font-semibold transition-all"
+            title="Redefinir Palavra-passe do Administrador"
+          >
+            <KeyRound className="w-3.5 h-3.5 text-sky-400" />
+            <span className="hidden md:inline">Redefinir Senha</span>
+          </button>
+
+          {/* Action 2: Terminar Sessão */}
           <button
             onClick={logout}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-rose-950/60 text-slate-300 hover:text-rose-400 border border-slate-700 hover:border-rose-800/60 text-xs font-semibold transition-all"
-            title="Encerrar Sessão"
+            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl hover:bg-rose-950/60 text-slate-300 hover:text-rose-300 border border-transparent hover:border-rose-700/40 text-xs font-semibold transition-all"
+            title="Terminar Sessão do Sistema"
           >
-            <LogOut className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">Terminar Sessão</span>
+            <LogOut className="w-3.5 h-3.5 text-rose-400" />
+            <span className="hidden md:inline">Terminar Sessão</span>
           </button>
         </div>
       </header>
@@ -148,6 +165,12 @@ export default function App() {
           {activeView === "reports" && <ReportsManagement />}
         </main>
       </div>
+
+      {/* Admin Password Reset Modal */}
+      <AdminPasswordResetModal
+        isOpen={isResetPasswordOpen}
+        onClose={() => setIsResetPasswordOpen(false)}
+      />
     </div>
   );
 }

@@ -12,7 +12,7 @@ import {
 export const SEED_ADMIN = {
   id: "admin-1",
   username: "admin",
-  fullName: "Administrador Geral (Espacie Services)",
+  fullName: "Administrador Geral",
   email: "admin@espacie.co.ao",
   role: "admin" as const,
 };

@@ -27,6 +27,7 @@ import {
 interface AppState {
   // Auth
   currentUser: UserSession | null;
+  adminPassword?: string;
   activeView:
     | "login"
     | "dashboard"
@@ -132,81 +133,137 @@ interface AppState {
   ) => { allowed: boolean; reason: string; isRetestAuthorized?: boolean };
 }
 
-const STORAGE_KEY = "espacie_services_store_v6";
+const STORAGE_KEY = "espacie_services_store_v7";
+const SESSION_KEY = "espacie_services_session_v7";
+
+interface SavedSession {
+  currentUser: UserSession | null;
+  activeView: AppState["activeView"];
+  selectedTestId: string | null;
+  selectedAttemptId: string | null;
+  currentAttempt: TestAttempt | null;
+  latestFinishedResultId: string | null;
+}
 
 function loadInitialState() {
+  let rawData: string | null = null;
+  let rawSession: string | null = null;
   try {
-    // Limpar versões antigas com dados obsoletos ("remove todas as informaçoes existente")
-    ["espacie_services_store_v1", "espacie_services_store_v2", "espacie_services_store_v3", "espacie_services_store_v4", "espacie_services_store_v5"].forEach((k) => {
-      try { localStorage.removeItem(k); } catch (_) {}
-    });
-
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw) {
-      const parsed = JSON.parse(raw);
-
-      // Setores de Atividade: usar diretamente os salvos para permitir exclusão definitiva
-      const sectors: string[] =
-        parsed.sectors && Array.isArray(parsed.sectors)
-          ? parsed.sectors
-          : [...DEFAULT_SECTORS];
-
-      // Posições e Cargos: usar diretamente os salvos para permitir exclusão definitiva
-      const positions: string[] =
-        parsed.positions && Array.isArray(parsed.positions)
-          ? parsed.positions
-          : [...DEFAULT_POSITIONS];
-
-      // Categorias profissionais: usar diretamente as salvas para permitir exclusão definitiva
-      const professionalCategories: string[] =
-        parsed.professionalCategories && Array.isArray(parsed.professionalCategories)
-          ? parsed.professionalCategories
-          : [...DEFAULT_PROFESSIONAL_CATEGORIES];
-
-      // Use saved tests & questions directly so deleted items remain deleted
-      const tests = Array.isArray(parsed.tests) ? parsed.tests : [...SEED_TESTS];
-      const questions = Array.isArray(parsed.questions) ? parsed.questions : [...SEED_QUESTIONS];
-
-      return {
-        candidates: parsed.candidates || [],
-        tests,
-        questions,
-        attempts: parsed.attempts || [],
-        results: parsed.results || [],
-        aiReports: parsed.aiReports || {},
-        authorizedRetests: parsed.authorizedRetests || {},
-        sectors,
-        positions,
-        professionalCategories,
-      };
-    }
+    rawData = localStorage.getItem(STORAGE_KEY) || localStorage.getItem("espacie_services_store_v6");
+    rawSession = localStorage.getItem(SESSION_KEY);
   } catch (e) {
-    console.warn("Could not load from localStorage", e);
+    console.warn("Could not read localStorage", e);
   }
+
+  let candidates: Candidate[] = [];
+  let tests: Test[] = [...SEED_TESTS];
+  let questions: Question[] = [...SEED_QUESTIONS];
+  let attempts: TestAttempt[] = [];
+  let results: Result[] = [];
+  let aiReports: Record<string, AiReport> = {};
+  let authorizedRetests: Record<string, RetestAuthorization> = {};
+  let sectors: string[] = [...DEFAULT_SECTORS];
+  let positions: string[] = [...DEFAULT_POSITIONS];
+  let professionalCategories: string[] = [...DEFAULT_PROFESSIONAL_CATEGORIES];
+  let adminPassword = "admin123";
+
+  if (rawData) {
+    try {
+      const parsed = JSON.parse(rawData);
+      if (Array.isArray(parsed.candidates)) candidates = parsed.candidates;
+      if (Array.isArray(parsed.tests)) tests = parsed.tests;
+      if (Array.isArray(parsed.questions)) questions = parsed.questions;
+      if (Array.isArray(parsed.attempts)) attempts = parsed.attempts;
+      if (Array.isArray(parsed.results)) results = parsed.results;
+      if (parsed.aiReports && typeof parsed.aiReports === "object") aiReports = parsed.aiReports;
+      if (parsed.authorizedRetests && typeof parsed.authorizedRetests === "object") authorizedRetests = parsed.authorizedRetests;
+      if (Array.isArray(parsed.sectors)) sectors = parsed.sectors;
+      if (Array.isArray(parsed.positions)) positions = parsed.positions;
+      if (Array.isArray(parsed.professionalCategories)) professionalCategories = parsed.professionalCategories;
+      if (typeof parsed.adminPassword === "string" && parsed.adminPassword.length >= 6) {
+        adminPassword = parsed.adminPassword;
+      }
+    } catch (e) {
+      console.warn("Could not parse data from localStorage", e);
+    }
+  }
+
+  // Load active session (preserves user state on page refresh or APK app reopen)
+  let currentUser: UserSession | null = null;
+  let activeView: AppState["activeView"] = "login";
+  let selectedTestId: string | null = null;
+  let selectedAttemptId: string | null = null;
+  let currentAttempt: TestAttempt | null = null;
+  let latestFinishedResultId: string | null = null;
+
+  if (rawSession) {
+    try {
+      const parsed = JSON.parse(rawSession);
+      if (parsed && parsed.currentUser) {
+        if (parsed.currentUser.role === "admin") {
+          currentUser = {
+            id: SEED_ADMIN.id,
+            username: "admin",
+            fullName: "Administrador Geral",
+            email: "admin@espacie.co.ao",
+            role: "admin",
+          };
+        } else {
+          // If candidate, refresh candidateProfile if found in latest candidates
+          const foundCand = candidates.find((c) => c.id === parsed.currentUser.id);
+          currentUser = {
+            ...parsed.currentUser,
+            candidateProfile: foundCand || parsed.currentUser.candidateProfile,
+          };
+        }
+
+        activeView =
+          parsed.activeView || (currentUser.role === "admin" ? "dashboard" : "candidate-portal");
+        selectedTestId = parsed.selectedTestId || null;
+        selectedAttemptId = parsed.selectedAttemptId || null;
+        currentAttempt = parsed.currentAttempt || null;
+        latestFinishedResultId = parsed.latestFinishedResultId || null;
+      }
+    } catch (e) {
+      console.warn("Could not parse session from localStorage", e);
+    }
+  }
+
   return {
-    candidates: [],
-    tests: SEED_TESTS,
-    questions: SEED_QUESTIONS,
-    attempts: [],
-    results: [],
-    aiReports: {},
-    authorizedRetests: {},
-    sectors: [...DEFAULT_SECTORS],
-    positions: [...DEFAULT_POSITIONS],
-    professionalCategories: [...DEFAULT_PROFESSIONAL_CATEGORIES],
+    candidates,
+    tests,
+    questions,
+    attempts,
+    results,
+    aiReports,
+    authorizedRetests,
+    sectors,
+    positions,
+    professionalCategories,
+    adminPassword,
+    currentUser,
+    activeView,
+    selectedTestId,
+    selectedAttemptId,
+    currentAttempt,
+    latestFinishedResultId,
   };
 }
 
 const init = loadInitialState();
 
 export const useAppStore = create<AppState>((set, get) => ({
-  currentUser: null,
-  activeView: "login",
-  selectedTestId: null,
-  selectedAttemptId: null,
-  currentAttempt: null,
-  latestFinishedResultId: null,
-  setLatestFinishedResultId: (id) => set({ latestFinishedResultId: id }),
+  currentUser: init.currentUser,
+  activeView: init.activeView,
+  adminPassword: init.adminPassword,
+  selectedTestId: init.selectedTestId,
+  selectedAttemptId: init.selectedAttemptId,
+  currentAttempt: init.currentAttempt,
+  latestFinishedResultId: init.latestFinishedResultId,
+  setLatestFinishedResultId: (id) => {
+    set({ latestFinishedResultId: id });
+    persistSession({ latestFinishedResultId: id });
+  },
 
   candidates: init.candidates,
   tests: init.tests,
@@ -304,15 +361,21 @@ export const useAppStore = create<AppState>((set, get) => ({
   maxSecurityWarnings: 3,
 
   loginAdmin: (username, password) => {
-    if (username.trim().toLowerCase() === "admin" && password === "admin123") {
+    const validPass = get().adminPassword || "admin123";
+    if (username.trim().toLowerCase() === "admin" && password === validPass) {
+      const user: UserSession = {
+        id: SEED_ADMIN.id,
+        username: "admin",
+        fullName: "Administrador Geral",
+        email: "admin@espacie.co.ao",
+        role: "admin",
+      };
       set({
-        currentUser: {
-          id: SEED_ADMIN.id,
-          username: "admin",
-          fullName: "Dr. Alberto Espacie (Administrador)",
-          email: "admin@espacie.co.ao",
-          role: "admin",
-        },
+        currentUser: user,
+        activeView: "dashboard",
+      });
+      persistSession({
+        currentUser: user,
         activeView: "dashboard",
       });
       return true;
@@ -332,14 +395,19 @@ export const useAppStore = create<AppState>((set, get) => ({
       if (!candidate.isActive) {
         return false;
       }
+      const user: UserSession = {
+        id: candidate.id,
+        fullName: candidate.fullName,
+        email: candidate.email,
+        role: "candidate",
+        candidateProfile: candidate,
+      };
       set({
-        currentUser: {
-          id: candidate.id,
-          fullName: candidate.fullName,
-          email: candidate.email,
-          role: "candidate",
-          candidateProfile: candidate,
-        },
+        currentUser: user,
+        activeView: "candidate-portal",
+      });
+      persistSession({
+        currentUser: user,
         activeView: "candidate-portal",
       });
       return true;
@@ -350,23 +418,44 @@ export const useAppStore = create<AppState>((set, get) => ({
   logout: () => {
     set({
       currentUser: null,
-      activeView: "dashboard",
+      activeView: "login",
       currentAttempt: null,
       selectedTestId: null,
       selectedAttemptId: null,
+      latestFinishedResultId: null,
+    });
+    persistSession({
+      currentUser: null,
+      activeView: "login",
+      currentAttempt: null,
+      selectedTestId: null,
+      selectedAttemptId: null,
+      latestFinishedResultId: null,
     });
   },
 
   resetAdminPassword: (oldPass, newPass) => {
-    if (oldPass === "admin123" && newPass.length >= 6) {
+    const currentPass = get().adminPassword || "admin123";
+    if (oldPass === currentPass && newPass.length >= 6) {
+      set({ adminPassword: newPass });
+      persistData({ adminPassword: newPass });
       return true;
     }
     return false;
   },
 
-  setActiveView: (view) => set({ activeView: view }),
-  setSelectedTestId: (id) => set({ selectedTestId: id }),
-  setSelectedAttemptId: (id) => set({ selectedAttemptId: id }),
+  setActiveView: (view) => {
+    set({ activeView: view });
+    persistSession({ activeView: view });
+  },
+  setSelectedTestId: (id) => {
+    set({ selectedTestId: id });
+    persistSession({ selectedTestId: id });
+  },
+  setSelectedAttemptId: (id) => {
+    set({ selectedAttemptId: id });
+    persistSession({ selectedAttemptId: id });
+  },
 
   // Candidates CRUD
   addCandidate: (candData) => {
@@ -630,6 +719,11 @@ export const useAppStore = create<AppState>((set, get) => ({
       activeView: "test-taking",
     });
     persistData({ attempts: updated });
+    persistSession({
+      currentAttempt: newAttempt,
+      activeView: "test-taking",
+      selectedTestId: testId,
+    });
     return newAttempt;
   },
 
@@ -661,6 +755,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       attempts: updatedAttempts,
     });
     persistData({ attempts: updatedAttempts });
+    persistSession({ currentAttempt: updatedAttempt });
   },
 
   recordSecurityEvent: (eventType, description) => {
@@ -799,6 +894,12 @@ export const useAppStore = create<AppState>((set, get) => ({
     });
 
     persistData({ attempts: updatedAttempts, results: updatedResults });
+    persistSession({
+      currentAttempt: null,
+      selectedAttemptId: attempt.id,
+      latestFinishedResultId: newResult.id,
+      activeView: get().currentUser?.role === "candidate" ? "candidate-portal" : "results",
+    });
     return newResult;
   },
 
@@ -987,9 +1088,11 @@ function persistData(data: Partial<{
   sectors: string[];
   positions: string[];
   professionalCategories: string[];
+  adminPassword?: string;
 }>) {
   try {
-    const existingRaw = localStorage.getItem(STORAGE_KEY);
+    const existingRaw =
+      localStorage.getItem(STORAGE_KEY) || localStorage.getItem("espacie_services_store_v6");
     const existing = existingRaw ? JSON.parse(existingRaw) : {};
     localStorage.setItem(
       STORAGE_KEY,
@@ -999,6 +1102,58 @@ function persistData(data: Partial<{
       })
     );
   } catch (e) {
-    console.warn("Error saving to localStorage", e);
+    console.warn("Error saving data to localStorage", e);
   }
+}
+
+function persistSession(session: Partial<SavedSession>) {
+  try {
+    const existingRaw = localStorage.getItem(SESSION_KEY);
+    const existing = existingRaw ? JSON.parse(existingRaw) : {};
+    localStorage.setItem(
+      SESSION_KEY,
+      JSON.stringify({
+        ...existing,
+        ...session,
+      })
+    );
+  } catch (e) {
+    console.warn("Error saving session to localStorage", e);
+  }
+}
+
+// Multi-tab and APK / WebView cross-view real-time synchronization
+if (typeof window !== "undefined") {
+  window.addEventListener("storage", (e) => {
+    if (e.key === STORAGE_KEY || e.key === SESSION_KEY) {
+      try {
+        const refreshed = loadInitialState();
+        useAppStore.setState({
+          candidates: refreshed.candidates,
+          tests: refreshed.tests,
+          questions: refreshed.questions,
+          attempts: refreshed.attempts,
+          results: refreshed.results,
+          aiReports: refreshed.aiReports,
+          authorizedRetests: refreshed.authorizedRetests,
+          sectors: refreshed.sectors,
+          positions: refreshed.positions,
+          professionalCategories: refreshed.professionalCategories,
+          adminPassword: refreshed.adminPassword,
+          ...(e.key === SESSION_KEY
+            ? {
+                currentUser: refreshed.currentUser,
+                activeView: refreshed.activeView,
+                selectedTestId: refreshed.selectedTestId,
+                selectedAttemptId: refreshed.selectedAttemptId,
+                currentAttempt: refreshed.currentAttempt,
+                latestFinishedResultId: refreshed.latestFinishedResultId,
+              }
+            : {}),
+        });
+      } catch (err) {
+        console.warn("Error synchronizing storage state across tabs/APK", err);
+      }
+    }
+  });
 }
