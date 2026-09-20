@@ -11,6 +11,7 @@ import {
   TrendingUp,
   AlertTriangle,
   CheckCircle2,
+  XCircle,
   Sparkles,
 } from "lucide-react";
 import {
@@ -35,14 +36,22 @@ export function ReportsManagement() {
   const [selectedSector, setSelectedSector] = useState<string>("all");
   const [selectedPeriod, setSelectedPeriod] = useState<string>("30d");
 
-  // Filtered by sector
+  // Filtered by sector and period
+  const now = new Date().getTime();
   const relevantResults = results.filter((r) => {
-    if (selectedSector === "all") return true;
-    const test = tests.find((t) => t.id === r.testId);
-    return test?.sector === selectedSector;
+    if (selectedSector !== "all") {
+      const test = tests.find((t) => t.id === r.testId);
+      if (test?.sector !== selectedSector) return false;
+    }
+    if (selectedPeriod !== "all") {
+      const days = selectedPeriod === "7d" ? 7 : selectedPeriod === "30d" ? 30 : 90;
+      const resDate = new Date(r.publishedAt).getTime();
+      if (now - resDate > days * 24 * 60 * 60 * 1000) return false;
+    }
+    return true;
   });
 
-  // KPIs
+  // KPIs based on filtered results (or all if filtered set is empty for overview)
   const totalResults = relevantResults.length;
   const aptoCount = relevantResults.filter((r) => r.classification === "Apto").length;
   const approvalRate = totalResults > 0 ? Math.round((aptoCount / totalResults) * 100) : 0;
@@ -53,9 +62,9 @@ export function ReportsManagement() {
         ) / 10
       : 0;
 
-  // Sector distribution
+  // Sector distribution based on real results
   const sectorDataMap: Record<string, { sector: string; count: number; aptos: number }> = {};
-  results.forEach((r) => {
+  relevantResults.forEach((r) => {
     const test = tests.find((t) => t.id === r.testId);
     const sec = test?.sector || "Outros";
     if (!sectorDataMap[sec]) {
@@ -72,26 +81,35 @@ export function ReportsManagement() {
     total: d.count,
   }));
 
-  // Top Performers Ranking
-  const topCandidates = [...results]
-    .sort((a, b) => b.percentage - a.percentage)
+  // Top Performers Ranking aligned strictly with real system data
+  const rankingSource = relevantResults.length > 0 ? relevantResults : results;
+  const topCandidates = [...rankingSource]
+    .sort((a, b) => b.percentage - a.percentage || b.totalScore - a.totalScore)
     .slice(0, 5)
     .map((r) => {
       const cand = candidates.find((c) => c.id === r.candidateId);
       const test = tests.find((t) => t.id === r.testId);
+      const isApproved = r.classification === "Apto";
       return {
         id: r.id,
         candidateName: cand?.fullName || "Candidato",
+        documentNumber: cand?.documentNumber || "-",
         seniority: cand?.seniority || "-",
+        jobTitle: cand?.jobTitle || "Candidato",
         testTitle: test?.title || "-",
+        sector: test?.sector || "-",
         score: r.percentage,
-        isApproved: r.classification === "Apto",
+        totalScore: r.totalScore,
+        maxScore: r.maxScore,
+        classification: r.classification,
+        isApproved,
+        date: new Date(r.publishedAt).toLocaleDateString("pt-AO"),
       };
     });
 
   // Export Consolidated PDF
   const handleExportConsolidatedPdf = () => {
-    generateGeneralExecutivePdf(tests, candidates, results, attempts);
+    generateGeneralExecutivePdf(tests, candidates, rankingSource, attempts);
     toast.success("Download do Relatório Executivo Geral em PDF iniciado.");
   };
 
@@ -210,59 +228,87 @@ export function ReportsManagement() {
           </div>
         </div>
 
-        {/* Top Performers Ranking */}
+        {/* Top Performers Ranking - Quadro de Honra */}
         <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-md space-y-4">
           <div className="flex items-center justify-between">
             <div>
-              <h3 className="text-sm font-bold text-slate-100">
-                Quadro de Honra (Top Melhores Desempenhos)
+              <h3 className="text-sm font-bold text-slate-100 flex items-center gap-2">
+                <span>Quadro de Honra (Top Melhores Desempenhos)</span>
+                <span className="px-2 py-0.5 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-300 text-[10px] font-mono">
+                  Dados Reais
+                </span>
               </h3>
               <p className="text-xs text-slate-400">
-                Candidatos com as maiores pontuações obtidas
+                Classificação oficial baseada no rendimento técnico apurado no sistema
               </p>
             </div>
             <Award className="w-5 h-5 text-amber-400" />
           </div>
 
-          <div className="space-y-3">
-            {topCandidates.map((top, idx) => (
-              <div
-                key={top.id}
-                className="p-3.5 rounded-xl bg-slate-950 border border-slate-800/90 flex items-center justify-between text-xs hover:border-slate-700 transition-colors"
-              >
-                <div className="flex items-center gap-3">
-                  <div
-                    className={`w-7 h-7 rounded-lg flex items-center justify-center font-mono font-bold text-xs ${
-                      idx === 0
-                        ? "bg-amber-500 text-slate-950 shadow-md shadow-amber-950/40"
-                        : idx === 1
-                        ? "bg-slate-400 text-slate-950"
-                        : idx === 2
-                        ? "bg-amber-700 text-amber-100"
-                        : "bg-slate-800 text-slate-400"
-                    }`}
-                  >
-                    #{idx + 1}
+          {topCandidates.length === 0 ? (
+            <div className="p-8 text-center bg-slate-950/60 rounded-xl border border-slate-800/80 text-xs text-slate-400">
+              Nenhuma avaliação registrada para os filtros selecionados.
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {topCandidates.map((top, idx) => (
+                <div
+                  key={top.id}
+                  className="p-3.5 rounded-xl bg-slate-950 border border-slate-800/90 flex items-center justify-between text-xs hover:border-slate-700 transition-colors"
+                >
+                  <div className="flex items-center gap-3">
+                    <div
+                      className={`w-7 h-7 rounded-lg flex items-center justify-center font-mono font-bold text-xs ${
+                        idx === 0
+                          ? "bg-amber-500 text-slate-950 shadow-md shadow-amber-950/40"
+                          : idx === 1
+                          ? "bg-slate-400 text-slate-950"
+                          : idx === 2
+                          ? "bg-amber-700 text-amber-100"
+                          : "bg-slate-800 text-slate-400"
+                      }`}
+                    >
+                      #{idx + 1}
+                    </div>
+                    <div>
+                      <div className="font-bold text-slate-200 flex items-center gap-1.5">
+                        <span>{top.candidateName}</span>
+                        <span className="text-[10px] font-normal text-slate-400">
+                          ({top.documentNumber})
+                        </span>
+                      </div>
+                      <div className="text-[11px] text-slate-400">
+                        <span className="text-slate-300 font-medium">{top.jobTitle}</span> • {top.seniority}
+                      </div>
+                      <div className="text-[10px] text-slate-500">
+                        {top.testTitle} ({top.sector}) • {top.date}
+                      </div>
+                    </div>
                   </div>
-                  <div>
-                    <div className="font-bold text-slate-200">{top.candidateName}</div>
-                    <div className="text-[11px] text-slate-400">
-                      {top.seniority} • {top.testTitle}
+
+                  <div className="text-right space-y-1">
+                    <div className="font-mono font-bold text-slate-100 text-sm">
+                      {top.score}%
+                    </div>
+                    <div className="text-[10px] text-slate-400 font-mono">
+                      {top.totalScore} / {top.maxScore} pts
+                    </div>
+                    <div>
+                      {top.isApproved ? (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 text-[10px] font-bold">
+                          <CheckCircle2 className="w-3 h-3" /> APTO
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-rose-500/20 text-rose-400 border border-rose-500/30 text-[10px] font-bold">
+                          <XCircle className="w-3 h-3" /> NÃO APTO
+                        </span>
+                      )}
                     </div>
                   </div>
                 </div>
-
-                <div className="text-right">
-                  <span className="font-mono font-bold text-emerald-400 text-sm">
-                    {top.score}%
-                  </span>
-                  <span className="block text-[10px] text-emerald-500/80 font-semibold uppercase">
-                    Apto
-                  </span>
-                </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
     </div>

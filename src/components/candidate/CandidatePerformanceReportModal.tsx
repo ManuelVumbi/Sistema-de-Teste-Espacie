@@ -4,20 +4,17 @@ import {
   Award,
   CheckCircle2,
   XCircle,
-  AlertCircle,
   Download,
-  FileText,
-  Clock,
   Briefcase,
   Layers,
   ShieldCheck,
   Calendar,
   Sparkles,
-  Check,
   LogOut,
   Info,
 } from "lucide-react";
 import { generateIndividualPdf } from "../../utils/pdfGenerator";
+import { EspacieLogo } from "../common/EspacieLogo";
 import { toast } from "sonner";
 
 interface CandidatePerformanceReportModalProps {
@@ -49,38 +46,11 @@ export function CandidatePerformanceReportModal({
 
   const isApto = result.classification === "Apto";
 
-  // Calculate audit statistics (Certas, Erradas, Parciais)
-  const auditStats = testQuestions.reduce(
-    (acc, q) => {
-      const ans = attempt?.answers[q.id];
-      const pointsAwarded =
-        ans?.awardedScore !== undefined
-          ? ans.awardedScore
-          : ans?.isCorrect
-          ? q.points
-          : 0;
-
-      const isCorr =
-        q.type === "multiple_choice" || q.type === "true_false"
-          ? ans?.selectedOptionId === q.correctAnswer || ans?.isCorrect === true
-          : pointsAwarded >= q.points;
-      const isWro =
-        q.type === "multiple_choice" || q.type === "true_false"
-          ? !ans?.selectedOptionId || ans?.selectedOptionId !== q.correctAnswer
-          : pointsAwarded === 0;
-
-      if (isCorr) acc.correct++;
-      else if (!isCorr && !isWro && pointsAwarded > 0) acc.partial++;
-      else acc.wrong++;
-
-      return acc;
-    },
-    { correct: 0, wrong: 0, partial: 0 }
-  );
-
   const handleDownloadPdf = () => {
     if (!test || !attempt) return;
-    generateIndividualPdf(candidate, test, attempt, testQuestions, result, aiReport);
+    generateIndividualPdf(candidate, test, attempt, testQuestions, result, aiReport, {
+      hideQuestionAudit: true,
+    });
     toast.success("Download do relatório oficial em PDF iniciado!");
   };
 
@@ -288,199 +258,25 @@ export function CandidatePerformanceReportModal({
             </div>
           )}
 
-          {/* Breakdown of Questions & Answers with Audit of Certas e Erradas */}
-          <div className="space-y-4">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-xl bg-slate-950 border border-slate-800">
-              <div>
-                <h4 className="font-bold text-sm text-slate-100 flex items-center gap-2">
-                  <FileText className="w-4 h-4 text-emerald-400" />
-                  Auditoria de Questões: Certas vs. Erradas
-                </h4>
-                <p className="text-xs text-slate-400">
-                  Gabarito oficial, resposta registrada e apuração de pontos obtidos por questão.
-                </p>
-              </div>
-
-              {/* Summary Badges */}
-              <div className="flex items-center gap-2 flex-wrap">
-                <div className="flex items-center gap-1.5 px-3 py-1 rounded-xl bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 text-xs font-bold">
-                  <CheckCircle2 className="w-3.5 h-3.5" />
-                  <span>{auditStats.correct} Certas</span>
-                </div>
-                <div className="flex items-center gap-1.5 px-3 py-1 rounded-xl bg-rose-500/20 border border-rose-500/40 text-rose-300 text-xs font-bold">
-                  <XCircle className="w-3.5 h-3.5" />
-                  <span>{auditStats.wrong} Erradas</span>
-                </div>
-                {auditStats.partial > 0 && (
-                  <div className="flex items-center gap-1.5 px-3 py-1 rounded-xl bg-amber-500/20 border border-amber-500/40 text-amber-300 text-xs font-bold">
-                    <AlertCircle className="w-3.5 h-3.5" />
-                    <span>{auditStats.partial} Parciais</span>
-                  </div>
-                )}
-              </div>
+          {/* Institutional Confidentiality, Audit Protocol & Exam Custody */}
+          <div className="p-5 rounded-2xl bg-slate-950 border border-slate-800 text-xs space-y-3">
+            <div className="flex items-center gap-2 text-slate-100 font-bold text-sm">
+              <ShieldCheck className="w-5 h-5 text-emerald-400" />
+              <span>Protocolo de Segurança e Custódia Institucional de Prova</span>
             </div>
-
-            <div className="space-y-3.5">
-              {testQuestions.map((q, idx) => {
-                const ans = attempt?.answers[q.id];
-                const pointsAwarded =
-                  ans?.awardedScore !== undefined
-                    ? ans.awardedScore
-                    : ans?.isCorrect
-                    ? q.points
-                    : 0;
-
-                const isFullyCorrect =
-                  q.type === "multiple_choice" || q.type === "true_false"
-                    ? ans?.selectedOptionId === q.correctAnswer || ans?.isCorrect === true
-                    : pointsAwarded >= q.points;
-                const isWrong =
-                  q.type === "multiple_choice" || q.type === "true_false"
-                    ? !ans?.selectedOptionId || ans?.selectedOptionId !== q.correctAnswer
-                    : pointsAwarded === 0;
-                const isPartiallyCorrect = !isFullyCorrect && !isWrong && pointsAwarded > 0;
-
-                let answerDisplay = "Não respondida";
-                if (q.type === "multiple_choice" || q.type === "true_false" || q.type === "image_based") {
-                  if (ans?.selectedOptionId) {
-                    const opt = q.options?.find((o) => o.id === ans.selectedOptionId);
-                    answerDisplay = opt ? opt.text : ans.selectedOptionId;
-                  }
-                } else if (q.type === "essay") {
-                  answerDisplay = ans?.textAnswer || "Nenhuma resposta fornecida.";
-                } else if (q.type === "visual_drawing") {
-                  answerDisplay = ans?.drawingData ? "[Esboço técnico submetido]" : "Não realizado";
-                }
-
-                // Gabarito Oficial text
-                let correctAnswerText = "";
-                if (q.type === "multiple_choice") {
-                  const opt = q.options?.find((o) => o.id === q.correctAnswer);
-                  correctAnswerText = opt ? opt.text : q.correctAnswer || "-";
-                } else if (q.type === "true_false") {
-                  correctAnswerText = q.correctAnswer === "true" ? "Verdadeiro" : "Falso";
-                } else if (q.type === "essay") {
-                  correctAnswerText = q.evaluationCriteria || "Critérios técnicos e conceituais esperados.";
-                } else if (q.type === "visual_drawing") {
-                  correctAnswerText = q.evaluationCriteria || "Esquema técnico e zonas operacionais.";
-                }
-
-                return (
-                  <div
-                    key={q.id}
-                    className={`p-4 sm:p-5 rounded-2xl bg-slate-950 border text-xs space-y-3 transition-all ${
-                      isFullyCorrect
-                        ? "border-emerald-500/40 shadow-sm shadow-emerald-950/20"
-                        : isWrong
-                        ? "border-rose-500/40 shadow-sm shadow-rose-950/20"
-                        : "border-amber-500/40 shadow-sm shadow-amber-950/20"
-                    }`}
-                  >
-                    <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
-                      <div className="space-y-1">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <span className="font-mono text-[11px] text-slate-400 font-bold">
-                            Questão #{idx + 1}
-                          </span>
-                          <span className="px-2 py-0.5 rounded bg-slate-900 border border-slate-800 text-[10px] text-slate-300">
-                            {q.type === "multiple_choice"
-                              ? "Múltipla Escolha"
-                              : q.type === "true_false"
-                              ? "V/F"
-                              : q.type === "essay"
-                              ? "Dissertativa"
-                              : "Esboço Visual"}
-                          </span>
-                          <span className="font-mono text-[11px] text-slate-400">
-                            {q.points} pontos máx
-                          </span>
-                        </div>
-                        <p className="font-semibold text-slate-200 text-sm">{q.statement}</p>
-                      </div>
-
-                      {/* Prominent Right / Wrong Badge */}
-                      <div className="shrink-0 flex items-center gap-2">
-                        {isFullyCorrect ? (
-                          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 font-bold text-xs">
-                            <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-                            <span>CERTA (+{pointsAwarded} pts)</span>
-                          </span>
-                        ) : isWrong ? (
-                          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-rose-500/20 border border-rose-500/40 text-rose-300 font-bold text-xs">
-                            <XCircle className="w-4 h-4 text-rose-400" />
-                            <span>ERRADA (0 pts)</span>
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/20 border border-amber-500/40 text-amber-300 font-bold text-xs">
-                            <AlertCircle className="w-4 h-4 text-amber-400" />
-                            <span>PARCIAL ({pointsAwarded}/{q.points} pts)</span>
-                          </span>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Candidate's submitted response */}
-                    <div
-                      className={`p-3 rounded-xl border space-y-1 ${
-                        isFullyCorrect
-                          ? "bg-emerald-950/15 border-emerald-500/30"
-                          : isWrong
-                          ? "bg-rose-950/15 border-rose-500/30"
-                          : "bg-amber-950/15 border-amber-500/30"
-                      }`}
-                    >
-                      <div className="flex items-center justify-between text-[11px]">
-                        <span className="font-bold uppercase tracking-wider text-slate-300 flex items-center gap-1.5">
-                          {isFullyCorrect ? (
-                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
-                          ) : isWrong ? (
-                            <XCircle className="w-3.5 h-3.5 text-rose-400" />
-                          ) : (
-                            <AlertCircle className="w-3.5 h-3.5 text-amber-400" />
-                          )}
-                          Sua Resposta Registrada:
-                        </span>
-                        <span
-                          className={`text-[10px] font-bold px-2 py-0.5 rounded ${
-                            isFullyCorrect
-                              ? "bg-emerald-500/20 text-emerald-300"
-                              : isWrong
-                              ? "bg-rose-500/20 text-rose-300"
-                              : "bg-amber-500/20 text-amber-300"
-                          }`}
-                        >
-                          {isFullyCorrect ? "Correta" : isWrong ? "Incorreta" : "Parcial"}
-                        </span>
-                      </div>
-
-                      <p className="text-slate-100 font-medium text-xs pt-0.5">{answerDisplay}</p>
-                    </div>
-
-                    {/* Official Answer Key / Gabarito Oficial */}
-                    <div className="p-3 rounded-xl bg-slate-900 border border-emerald-500/30 space-y-1.5">
-                      <div className="flex items-center justify-between text-[11px]">
-                        <span className="font-bold text-emerald-400 uppercase tracking-wider flex items-center gap-1.5">
-                          <Check className="w-3.5 h-3.5" /> Gabarito Oficial:
-                        </span>
-                        <span className="text-[10px] text-slate-400 font-mono">
-                          Referência Técnica
-                        </span>
-                      </div>
-
-                      <p className="text-slate-200 font-semibold text-xs leading-relaxed">
-                        {correctAnswerText}
-                      </p>
-
-                      {q.legalSource && (
-                        <div className="text-[10px] text-slate-400 pt-1 flex items-center gap-1">
-                          <span className="font-semibold text-slate-300">Base Normativa / Fonte:</span>
-                          <span className="text-slate-300 font-mono">{q.legalSource}</span>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
+            <p className="text-slate-300 leading-relaxed">
+              O seu exame técnico foi finalizado, criptografado e homologado na base de dados central da <strong>Espacie Services</strong>.
+              Em estrita conformidade com as normas institucionais de segurança e integridade dos processos de recrutamento e seleção, <strong>o detalhamento analítico de questões e o gabarito oficial permanecem sob custódia exclusiva da banca técnica examinadora e do Departamento de Recursos Humanos</strong>.
+            </p>
+            <div className="pt-2 border-t border-slate-800/80 grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px] text-slate-400 font-mono">
+              <div className="flex items-center gap-1.5">
+                <span className="text-slate-500">ID da Tentativa:</span>
+                <span className="text-slate-200">ESP-{result.attemptId.substring(0, 10).toUpperCase()}</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <span className="text-slate-500">Registo Oficial:</span>
+                <span className="text-slate-200">{new Date(result.publishedAt).toLocaleString("pt-AO")}</span>
+              </div>
             </div>
           </div>
         </div>

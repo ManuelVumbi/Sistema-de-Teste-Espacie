@@ -8,26 +8,22 @@ import {
   FileText,
   Lock,
   ArrowRight,
-  Sparkles,
-  HelpCircle,
   RotateCcw,
-  CheckCircle2,
-  AlertCircle,
 } from "lucide-react";
 import { toast } from "sonner";
 
 export function LoginView() {
-  const { loginAdmin, loginCandidate, resetAdminPassword, candidates } = useAppStore();
+  const { loginAdmin, loginCandidate, resetAdminPassword } = useAppStore();
 
   const [activeTab, setActiveTab] = useState<"admin" | "candidate">("candidate");
 
   // Admin credentials state
-  const [adminUsername, setAdminUsername] = useState("admin");
-  const [adminPassword, setAdminPassword] = useState("admin123");
+  const [adminUsername, setAdminUsername] = useState("");
+  const [adminPassword, setAdminPassword] = useState("");
 
   // Candidate credentials state
-  const [candDoc, setCandDoc] = useState("004819283LA042");
-  const [candPass, setCandPass] = useState("candidato123");
+  const [candDoc, setCandDoc] = useState("");
+  const [candPass, setCandPass] = useState("");
 
   // Admin Password Reset Modal state
   const [resetModalOpen, setResetModalOpen] = useState(false);
@@ -163,29 +159,6 @@ export function LoginView() {
               <span>Acessar Provas Técnicas</span>
               <ArrowRight className="w-4 h-4" />
             </button>
-
-            {/* Quick Demo Credentials Helper */}
-            <div className="pt-2 border-t border-slate-800 text-[11px] text-slate-400 space-y-1.5">
-              <div className="flex items-center gap-1 font-semibold text-slate-300">
-                <Sparkles className="w-3.5 h-3.5 text-amber-400" /> Candidatos de Exemplo para Teste:
-              </div>
-              <div className="flex flex-wrap gap-1.5">
-                {candidates.slice(0, 3).map((c) => (
-                  <button
-                    key={c.id}
-                    type="button"
-                    onClick={() => {
-                      setCandDoc(c.documentNumber);
-                      setCandPass(c.accessPassword || "candidato123");
-                      toast.info(`Credenciais de ${c.fullName} carregadas.`);
-                    }}
-                    className="px-2 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 text-[10px] font-mono transition-colors"
-                  >
-                    {c.fullName.split(" ")[0]} ({c.seniority})
-                  </button>
-                ))}
-              </div>
-            </div>
           </form>
         )}
 
@@ -320,11 +293,6 @@ export function LoginView() {
           </div>
         </div>
       )}
-
-      {/* Footer */}
-      <footer className="mt-8 text-xs text-slate-500 text-center font-mono">
-        Espacie Services — República de Angola • Conectividade Segura
-      </footer>
     </div>
   );
 }

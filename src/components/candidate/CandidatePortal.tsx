@@ -19,6 +19,8 @@ import { generateIndividualPdf } from "../../utils/pdfGenerator";
 import { CandidatePerformanceReportModal } from "./CandidatePerformanceReportModal";
 import { toast } from "sonner";
 
+import { EspacieLogo } from "../common/EspacieLogo";
+
 export function CandidatePortal() {
   const {
     currentUser,
@@ -96,7 +98,9 @@ export function CandidatePortal() {
     const testQuestions = questions.filter((q) => q.testId === test.id);
     const aiReport = aiReports[attempt.id];
 
-    generateIndividualPdf(candidate, test, attempt, testQuestions, res, aiReport);
+    generateIndividualPdf(candidate, test, attempt, testQuestions, res, aiReport, {
+      hideQuestionAudit: true,
+    });
     toast.success("Download do relatório individual iniciado.");
   };
 
@@ -105,14 +109,13 @@ export function CandidatePortal() {
       {/* Portal Top Bar */}
       <header className="bg-slate-900 border-b border-slate-800 px-4 sm:px-8 py-4 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center text-emerald-400 font-bold text-base shadow-sm">
-            ES
-          </div>
+          <EspacieLogo theme="on-dark" size="sm" />
+          <div className="h-6 w-px bg-slate-800 hidden sm:block" />
           <div>
             <span className="text-xs text-emerald-400 font-mono font-semibold tracking-wider block">
               PORTAL DO CANDIDATO
             </span>
-            <h1 className="font-bold text-lg text-slate-100">
+            <h1 className="font-bold text-base text-slate-100">
               Espacie Services
             </h1>
           </div>

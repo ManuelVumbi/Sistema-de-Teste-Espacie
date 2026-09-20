@@ -28,6 +28,7 @@ interface AppState {
   // Auth
   currentUser: UserSession | null;
   activeView:
+    | "login"
     | "dashboard"
     | "candidates"
     | "tests"
@@ -72,6 +73,7 @@ interface AppState {
   resetAdminPassword: (oldPass: string, newPass: string) => boolean;
   setActiveView: (
     view:
+      | "login"
       | "dashboard"
       | "candidates"
       | "tests"
@@ -198,14 +200,8 @@ function loadInitialState() {
 const init = loadInitialState();
 
 export const useAppStore = create<AppState>((set, get) => ({
-  currentUser: {
-    id: SEED_ADMIN.id,
-    username: SEED_ADMIN.username,
-    fullName: SEED_ADMIN.fullName,
-    email: SEED_ADMIN.email,
-    role: "admin",
-  },
-  activeView: "dashboard",
+  currentUser: null,
+  activeView: "login",
   selectedTestId: null,
   selectedAttemptId: null,
   currentAttempt: null,

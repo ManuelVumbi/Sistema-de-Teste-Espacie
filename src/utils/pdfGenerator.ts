@@ -1,9 +1,11 @@
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { Candidate, Test, TestAttempt, Question, Result, AiReport } from "../types";
+import { ESPACIE_LOGO_BASE64 } from "../constants/logoData";
 
 /**
  * Draws the official Espacie Services brand header on any jsPDF document page.
+ * Uses the authentic Espacie Services corporate logo.
  */
 function drawEspaciePdfHeader(
   doc: jsPDF,
@@ -20,43 +22,35 @@ function drawEspaciePdfHeader(
   doc.setFillColor(56, 189, 248);
   doc.rect(0, 38, pageWidth, 2.5, "F");
 
-  // 3. Official Logo Badge Box (White Card)
+  // 3. Official Logo Card with Real Espacie Services Logo
   doc.setFillColor(255, 255, 255);
-  doc.roundedRect(12, 7, 24, 24, 3, 3, "F");
+  doc.roundedRect(12, 6, 44, 26, 3, 3, "F");
 
-  // Stylized Espacie Emblem Curves inside the white badge
-  // Upper wing - Navy #0A2540
-  doc.setFillColor(10, 37, 64);
-  doc.circle(24, 17, 7.5, "F");
+  try {
+    doc.addImage(ESPACIE_LOGO_BASE64, "PNG", 14, 8, 40, 22);
+  } catch (err) {
+    // Graceful fallback
+    doc.setFillColor(10, 37, 64);
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "bold");
+    doc.text("ESPACIE", 18, 20);
+  }
 
-  // Sky blue inner dynamic crescent
-  doc.setFillColor(56, 189, 248);
-  doc.circle(26, 15.5, 4.5, "F");
-
-  // Core cutout
-  doc.setFillColor(255, 255, 255);
-  doc.circle(27, 14.5, 2.8, "F");
-
-  // Subtle cross blade
-  doc.setFillColor(2, 132, 199);
-  doc.circle(21.5, 19.5, 2.2, "F");
-
-  // 4. Espacie Services Typography
+  // 4. Espacie Services Header Typography
   doc.setTextColor(255, 255, 255);
-  doc.setFontSize(16);
+  doc.setFontSize(13);
   doc.setFont("helvetica", "bold");
-  doc.text("Espacie", 41, 17);
-
-  doc.setFontSize(8);
-  doc.setFont("helvetica", "bold");
-  doc.setTextColor(56, 189, 248); // Sky Blue
-  doc.text("SERVICES", 41, 22);
+  doc.text("Espacie Services", 60, 16);
 
   doc.setFontSize(8);
   doc.setFont("helvetica", "normal");
+  doc.setTextColor(56, 189, 248); // Sky Blue
+  doc.text(title, 60, 22);
+
+  doc.setFontSize(7.5);
   doc.setTextColor(203, 213, 225); // Slate 300
-  doc.text(title, 41, 27);
-  doc.text(subtitle, 41, 32);
+  doc.text(subtitle, 60, 27);
+  doc.text("Direção de Recursos Humanos e Operações Técnicas • República de Angola", 60, 32);
 
   // 5. Right Status Badge (if provided)
   if (rightBadge) {
@@ -86,7 +80,8 @@ export function generateIndividualPdf(
   attempt: TestAttempt,
   questions: Question[],
   result?: Result,
-  aiReport?: AiReport
+  aiReport?: AiReport,
+  options?: { hideQuestionAudit?: boolean }
 ) {
   const doc = new jsPDF({
     orientation: "portrait",
@@ -163,166 +158,236 @@ export function generateIndividualPdf(
 
   y = (doc as any).lastAutoTable.finalY + 8;
 
-  // Detailed breakdown of questions & answers with explicit Certas e Erradas audit
-  let correctTotal = 0;
-  let wrongTotal = 0;
-  let partialTotal = 0;
+  if (options?.hideQuestionAudit) {
+    // CANDIDATE VIEW:
+    // Confidentiality of individual questions & keys is preserved
+    doc.setFillColor(248, 250, 252);
+    doc.setDrawColor(226, 232, 240);
+    doc.roundedRect(14, y, pageWidth - 28, 44, 2.5, 2.5, "FD");
 
-  questions.forEach((q) => {
-    const ans = attempt.answers[q.id];
-    const awarded = ans?.awardedScore !== undefined ? ans.awardedScore : (ans?.isCorrect ? q.points : 0);
-    const isCorr =
-      q.type === "multiple_choice" || q.type === "true_false"
-        ? ans?.selectedOptionId === q.correctAnswer || ans?.isCorrect === true
-        : awarded >= q.points;
-    const isWro =
-      q.type === "multiple_choice" || q.type === "true_false"
-        ? !ans?.selectedOptionId || ans?.selectedOptionId !== q.correctAnswer
-        : awarded === 0;
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(10, 37, 64);
+    doc.text("SÍNTESE INSTITUCIONAL DE RENDIMENTO INDIVIDUAL", 20, y + 8);
 
-    if (isCorr) correctTotal++;
-    else if (!isCorr && !isWro && awarded > 0) partialTotal++;
-    else wrongTotal++;
-  });
+    doc.setFontSize(8.5);
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(51, 65, 85);
+    doc.text(
+      `• Total de Questões Avaliadas: ${questions.length} questões técnicas`,
+      20,
+      y + 16
+    );
+    doc.text(
+      `• Pontuação Obtida: ${attempt.score} de ${attempt.maxScore} pontos possíveis (${attempt.percentage}%)`,
+      20,
+      y + 23
+    );
+    doc.text(
+      `• Nota de Corte para Aprovação: ${test.passingScore}% (${Math.round((test.passingScore / 100) * attempt.maxScore)} pontos)`,
+      20,
+      y + 30
+    );
+    doc.text(
+      `• Parecer Técnico Oficial: ${isApproved ? "APTO PARA A FUNÇÃO (Aprovado no Exame Técnico)" : "NÃO APTO (Abaixo da Nota de Corte)"}`,
+      20,
+      y + 37
+    );
 
-  doc.setFontSize(10.5);
-  doc.setFont("helvetica", "bold");
-  doc.setTextColor(10, 37, 64);
-  doc.text("AUDITORIA DA PROVA: IDENTIFICAÇÃO DE QUESTÕES CERTAS E ERRADAS", 14, y);
-  y += 5;
+    y += 50;
 
-  doc.setFontSize(8);
-  doc.setFont("helvetica", "normal");
-  doc.setTextColor(71, 85, 105);
-  doc.text(
-    `Total de Questões: ${questions.length}   |   Certas: ${correctTotal}   |   Erradas: ${wrongTotal}   |   Parciais: ${partialTotal}   |   Rendimento: ${attempt.percentage}%`,
-    14,
-    y
-  );
-  y += 4;
+    // Institutional Custody and Confidentiality Notice
+    doc.setFillColor(240, 249, 255); // sky-50
+    doc.setDrawColor(186, 230, 253); // sky-200
+    doc.roundedRect(14, y, pageWidth - 28, 38, 2.5, 2.5, "FD");
 
-  const tableRows = questions.map((q, idx) => {
-    const ans = attempt.answers[q.id];
-    let respostaText = "-";
-    if (q.type === "multiple_choice") {
-      const opt = q.options?.find((o) => o.id === ans?.selectedOptionId);
-      respostaText = opt ? opt.text : "Não respondida";
-    } else if (q.type === "true_false") {
-      respostaText =
-        ans?.selectedOptionId === "true"
-          ? "Verdadeiro"
-          : ans?.selectedOptionId === "false"
-          ? "Falso"
+    doc.setFontSize(9);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(2, 132, 199); // sky-600
+    doc.text("PROTOCOLO DE CUSTÓDIA INSTITUCIONAL E INTEGRIDADE", 20, y + 8);
+
+    doc.setFontSize(7.5);
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(51, 65, 85);
+    const splitNotice = doc.splitTextToSize(
+      "A presente avaliação técnica foi submetida e homologada no sistema central da Espacie Services. Em observância às normas de segurança e integridade dos processos de recrutamento e seleção, as respostas individuais, alternativas e o gabarito oficial permanecem arquivados sob custódia e sigilo restrito da banca examinadora e da Direção de Recursos Humanos.",
+      pageWidth - 40
+    );
+    doc.text(splitNotice, 20, y + 15);
+
+    const subDate = attempt.completedAt || (result && result.publishedAt) || new Date().toISOString();
+    doc.setFontSize(7);
+    doc.setTextColor(100, 116, 139);
+    doc.text(
+      `Código de Autenticação: ESP-${attempt.id.substring(0, 12).toUpperCase()} | Submetido em: ${new Date(subDate).toLocaleString("pt-AO")}`,
+      20,
+      y + 32
+    );
+
+    y += 44;
+  } else {
+    // ADMIN VIEW:
+    // Detailed breakdown of questions & answers with explicit Certas e Erradas audit
+    let correctTotal = 0;
+    let wrongTotal = 0;
+    let partialTotal = 0;
+
+    questions.forEach((q) => {
+      const ans = attempt.answers[q.id];
+      const awarded = ans?.awardedScore !== undefined ? ans.awardedScore : (ans?.isCorrect ? q.points : 0);
+      const isCorr =
+        q.type === "multiple_choice" || q.type === "true_false"
+          ? ans?.selectedOptionId === q.correctAnswer || ans?.isCorrect === true
+          : awarded >= q.points;
+      const isWro =
+        q.type === "multiple_choice" || q.type === "true_false"
+          ? !ans?.selectedOptionId || ans?.selectedOptionId !== q.correctAnswer
+          : awarded === 0;
+
+      if (isCorr) correctTotal++;
+      else if (!isCorr && !isWro && awarded > 0) partialTotal++;
+      else wrongTotal++;
+    });
+
+    doc.setFontSize(10.5);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(10, 37, 64);
+    doc.text("AUDITORIA DA PROVA: IDENTIFICAÇÃO DE QUESTÕES CERTAS E ERRADAS", 14, y);
+    y += 5;
+
+    doc.setFontSize(8);
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(71, 85, 105);
+    doc.text(
+      `Total de Questões: ${questions.length}   |   Certas: ${correctTotal}   |   Erradas: ${wrongTotal}   |   Parciais: ${partialTotal}   |   Rendimento: ${attempt.percentage}%`,
+      14,
+      y
+    );
+    y += 4;
+
+    const tableRows = questions.map((q, idx) => {
+      const ans = attempt.answers[q.id];
+      let respostaText = "-";
+      if (q.type === "multiple_choice") {
+        const opt = q.options?.find((o) => o.id === ans?.selectedOptionId);
+        respostaText = opt ? opt.text : "Não respondida";
+      } else if (q.type === "true_false") {
+        respostaText =
+          ans?.selectedOptionId === "true"
+            ? "Verdadeiro"
+            : ans?.selectedOptionId === "false"
+            ? "Falso"
+            : "Não respondida";
+      } else if (q.type === "essay") {
+        respostaText = ans?.textAnswer
+          ? ans.textAnswer.length > 75
+            ? ans.textAnswer.substring(0, 75) + "..."
+            : ans.textAnswer
           : "Não respondida";
-    } else if (q.type === "essay") {
-      respostaText = ans?.textAnswer
-        ? ans.textAnswer.length > 75
-          ? ans.textAnswer.substring(0, 75) + "..."
-          : ans.textAnswer
-        : "Não respondida";
-    } else if (q.type === "visual_drawing") {
-      respostaText = ans?.drawingData ? "[Esquema técnico submetido]" : "Não respondida";
-    } else {
-      respostaText = ans?.selectedOptionId || "Respondida";
-    }
-
-    // Gabarito Oficial
-    let gabaritoText = "-";
-    if (q.type === "multiple_choice") {
-      const opt = q.options?.find((o) => o.id === q.correctAnswer);
-      gabaritoText = opt ? opt.text : q.correctAnswer || "-";
-    } else if (q.type === "true_false") {
-      gabaritoText = q.correctAnswer === "true" ? "Verdadeiro" : "Falso";
-    } else if (q.type === "essay") {
-      gabaritoText = q.evaluationCriteria
-        ? q.evaluationCriteria.length > 70
-          ? q.evaluationCriteria.substring(0, 70) + "..."
-          : q.evaluationCriteria
-        : "Critérios técnicos e conceituais";
-    } else if (q.type === "visual_drawing") {
-      gabaritoText = q.evaluationCriteria
-        ? q.evaluationCriteria.length > 70
-          ? q.evaluationCriteria.substring(0, 70) + "..."
-          : q.evaluationCriteria
-        : "Layout operacional e zonas";
-    }
-
-    const typeLabel =
-      q.type === "multiple_choice"
-        ? "M. Escolha"
-        : q.type === "true_false"
-        ? "V/F"
-        : q.type === "essay"
-        ? "Dissertativa"
-        : "Visual";
-
-    const awarded = ans?.awardedScore !== undefined ? ans.awardedScore : (ans?.isCorrect ? q.points : 0);
-    const isCorr =
-      q.type === "multiple_choice" || q.type === "true_false"
-        ? ans?.selectedOptionId === q.correctAnswer || ans?.isCorrect === true
-        : awarded >= q.points;
-    const isWro =
-      q.type === "multiple_choice" || q.type === "true_false"
-        ? !ans?.selectedOptionId || ans?.selectedOptionId !== q.correctAnswer
-        : awarded === 0;
-
-    const statusLabel = isCorr ? "CERTA" : isWro ? "ERRADA" : "PARCIAL";
-    const pontos = `${awarded} / ${q.points}`;
-
-    return [
-      `#${idx + 1}`,
-      `${q.statement.length > 60 ? q.statement.substring(0, 60) + "..." : q.statement}\n[${typeLabel}]`,
-      respostaText,
-      gabaritoText,
-      statusLabel,
-      pontos,
-    ];
-  });
-
-  autoTable(doc, {
-    startY: y,
-    theme: "striped",
-    head: [["#", "Questão / Enunciado", "Resposta do Candidato", "Gabarito Oficial", "Auditoria", "Pontos"]],
-    body: tableRows,
-    headStyles: {
-      fillColor: [10, 37, 64],
-      textColor: [255, 255, 255],
-      fontSize: 8,
-      fontStyle: "bold",
-    },
-    bodyStyles: {
-      fontSize: 7.2,
-      textColor: [15, 23, 42],
-      cellPadding: 2.8,
-    },
-    columnStyles: {
-      0: { cellWidth: 8, halign: "center" },
-      1: { cellWidth: 54 },
-      2: { cellWidth: 44 },
-      3: { cellWidth: 44 },
-      4: { cellWidth: 18, halign: "center" },
-      5: { cellWidth: 16, halign: "center" },
-    },
-    alternateRowStyles: {
-      fillColor: [248, 250, 252],
-    },
-    didParseCell: (data) => {
-      if (data.section === "body" && data.column.index === 4) {
-        if (data.cell.raw === "CERTA") {
-          data.cell.styles.textColor = [16, 149, 100];
-          data.cell.styles.fontStyle = "bold";
-        } else if (data.cell.raw === "ERRADA") {
-          data.cell.styles.textColor = [225, 29, 72];
-          data.cell.styles.fontStyle = "bold";
-        } else if (data.cell.raw === "PARCIAL") {
-          data.cell.styles.textColor = [217, 119, 6];
-          data.cell.styles.fontStyle = "bold";
-        }
+      } else if (q.type === "visual_drawing") {
+        respostaText = ans?.drawingData ? "[Esquema técnico submetido]" : "Não respondida";
+      } else {
+        respostaText = ans?.selectedOptionId || "Respondida";
       }
-    },
-  });
 
-  y = (doc as any).lastAutoTable.finalY + 8;
+      // Gabarito Oficial
+      let gabaritoText = "-";
+      if (q.type === "multiple_choice") {
+        const opt = q.options?.find((o) => o.id === q.correctAnswer);
+        gabaritoText = opt ? opt.text : q.correctAnswer || "-";
+      } else if (q.type === "true_false") {
+        gabaritoText = q.correctAnswer === "true" ? "Verdadeiro" : "Falso";
+      } else if (q.type === "essay") {
+        gabaritoText = q.evaluationCriteria
+          ? q.evaluationCriteria.length > 70
+            ? q.evaluationCriteria.substring(0, 70) + "..."
+            : q.evaluationCriteria
+          : "Critérios técnicos e conceituais";
+      } else if (q.type === "visual_drawing") {
+        gabaritoText = q.evaluationCriteria
+          ? q.evaluationCriteria.length > 70
+            ? q.evaluationCriteria.substring(0, 70) + "..."
+            : q.evaluationCriteria
+          : "Layout operacional e zonas";
+      }
+
+      const typeLabel =
+        q.type === "multiple_choice"
+          ? "M. Escolha"
+          : q.type === "true_false"
+          ? "V/F"
+          : q.type === "essay"
+          ? "Dissertativa"
+          : "Visual";
+
+      const awarded = ans?.awardedScore !== undefined ? ans.awardedScore : (ans?.isCorrect ? q.points : 0);
+      const isCorr =
+        q.type === "multiple_choice" || q.type === "true_false"
+          ? ans?.selectedOptionId === q.correctAnswer || ans?.isCorrect === true
+          : awarded >= q.points;
+      const isWro =
+        q.type === "multiple_choice" || q.type === "true_false"
+          ? !ans?.selectedOptionId || ans?.selectedOptionId !== q.correctAnswer
+          : awarded === 0;
+
+      const statusLabel = isCorr ? "CERTA" : isWro ? "ERRADA" : "PARCIAL";
+      const pontos = `${awarded} / ${q.points}`;
+
+      return [
+        `#${idx + 1}`,
+        `${q.statement.length > 60 ? q.statement.substring(0, 60) + "..." : q.statement}\n[${typeLabel}]`,
+        respostaText,
+        gabaritoText,
+        statusLabel,
+        pontos,
+      ];
+    });
+
+    autoTable(doc, {
+      startY: y,
+      theme: "striped",
+      head: [["#", "Questão / Enunciado", "Resposta do Candidato", "Gabarito Oficial", "Auditoria", "Pontos"]],
+      body: tableRows,
+      headStyles: {
+        fillColor: [10, 37, 64],
+        textColor: [255, 255, 255],
+        fontSize: 8,
+        fontStyle: "bold",
+      },
+      bodyStyles: {
+        fontSize: 7.2,
+        textColor: [15, 23, 42],
+        cellPadding: 2.8,
+      },
+      columnStyles: {
+        0: { cellWidth: 8, halign: "center" },
+        1: { cellWidth: 54 },
+        2: { cellWidth: 44 },
+        3: { cellWidth: 44 },
+        4: { cellWidth: 18, halign: "center" },
+        5: { cellWidth: 16, halign: "center" },
+      },
+      alternateRowStyles: {
+        fillColor: [248, 250, 252],
+      },
+      didParseCell: (data) => {
+        if (data.section === "body" && data.column.index === 4) {
+          if (data.cell.raw === "CERTA") {
+            data.cell.styles.textColor = [16, 149, 100];
+            data.cell.styles.fontStyle = "bold";
+          } else if (data.cell.raw === "ERRADA") {
+            data.cell.styles.textColor = [225, 29, 72];
+            data.cell.styles.fontStyle = "bold";
+          } else if (data.cell.raw === "PARCIAL") {
+            data.cell.styles.textColor = [217, 119, 6];
+            data.cell.styles.fontStyle = "bold";
+          }
+        }
+      },
+    });
+
+    y = (doc as any).lastAutoTable.finalY + 8;
+  }
 
   // If there is AI analysis report
   if (aiReport) {
@@ -460,6 +525,61 @@ export function generateGeneralExecutivePdf(
   });
 
   y = (doc as any).lastAutoTable.finalY + 8;
+
+  // Quadro de Honra - Top Melhores Desempenhos (Real system data)
+  const topHonors = [...results]
+    .sort((a, b) => b.percentage - a.percentage || b.totalScore - a.totalScore)
+    .slice(0, 5)
+    .map((r, idx) => {
+      const cand = candidates.find((c) => c.id === r.candidateId);
+      const test = tests.find((t) => t.id === r.testId);
+      return [
+        `#${idx + 1}`,
+        cand ? cand.fullName : "Candidato",
+        cand ? `${cand.jobTitle} (${cand.seniority})` : "-",
+        test ? test.title : "Avaliação",
+        `${r.totalScore}/${r.maxScore} (${r.percentage}%)`,
+        r.classification.toUpperCase(),
+        new Date(r.publishedAt).toLocaleDateString("pt-AO"),
+      ];
+    });
+
+  if (topHonors.length > 0) {
+    doc.setFontSize(11);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(10, 37, 64);
+    doc.text("QUADRO DE HONRA — TOP MELHORES DESEMPENHOS", 14, y);
+    y += 4;
+
+    autoTable(doc, {
+      startY: y,
+      theme: "grid",
+      head: [["Pos.", "Candidato", "Função / Categoria", "Avaliação Técnica", "Pontuação", "Parecer", "Data"]],
+      body: topHonors,
+      headStyles: {
+        fillColor: [14, 165, 233], // Sky Blue 500
+        textColor: [255, 255, 255],
+        fontSize: 7.5,
+        fontStyle: "bold",
+      },
+      bodyStyles: {
+        fontSize: 7.2,
+        textColor: [15, 23, 42],
+        cellPadding: 2.5,
+      },
+      columnStyles: {
+        0: { cellWidth: 10, halign: "center", fontStyle: "bold" },
+        4: { halign: "center", fontStyle: "bold" },
+        5: { halign: "center", fontStyle: "bold" },
+        6: { halign: "center" },
+      },
+      alternateRowStyles: {
+        fillColor: [240, 249, 255],
+      },
+    });
+
+    y = (doc as any).lastAutoTable.finalY + 8;
+  }
 
   // Results Table
   doc.setFontSize(12);
