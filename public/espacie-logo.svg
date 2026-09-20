@@ -1,0 +1,49 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 280 72" fill="none">
+  <!-- Espacie Services Official Logo Vector -->
+  <g id="espacie-emblem">
+    <!-- Top-Right Blade / Wing -->
+    <path
+      d="M28 8 C36 8 52 14 62 30 C58 31 46 31 38 29 C26 26 21 19 28 8 Z"
+      fill="#0A2540"
+    />
+    <path
+      d="M52 12 C64 20 72 34 70 42 C64 42 52 38 46 32 C38 24 44 15 52 12 Z"
+      fill="#0A2540"
+    />
+    <!-- Bottom-Left Blade / Wing -->
+    <path
+      d="M12 60 C8 52 10 36 26 24 C28 28 32 38 34 44 C36 54 24 59 12 60 Z"
+      fill="#0A2540"
+    />
+    <path
+      d="M26 64 C36 64 54 56 64 38 C60 40 48 46 40 48 C28 51 22 58 26 64 Z"
+      fill="#0A2540"
+    />
+  </g>
+
+  <!-- Wordmark: Espacie -->
+  <text
+    x="84"
+    y="44"
+    font-family="system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif"
+    font-size="34"
+    font-weight="800"
+    letter-spacing="-0.5"
+    fill="#0A2540"
+  >
+    Espacie
+  </text>
+
+  <!-- Subtitle: SERVICES -->
+  <text
+    x="86"
+    y="62"
+    font-family="system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif"
+    font-size="11.5"
+    font-weight="700"
+    letter-spacing="3.5"
+    fill="#64748B"
+  >
+    SERVICES
+  </text>
+</svg>

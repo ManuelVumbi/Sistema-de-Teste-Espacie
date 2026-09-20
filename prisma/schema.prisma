@@ -1,0 +1,296 @@
+// Prisma Schema: Sistema de Testes — Espacie Services
+// Banco de dados: SQLite (configurável para PostgreSQL / MySQL)
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+enum Role {
+  ADMIN
+  CANDIDATE
+}
+
+enum SeniorityLevel {
+  ESTAGIARIO
+  JUNIOR
+  TECNICO
+  PLENO
+  SENIOR
+  ESPECIALISTA
+  SUPERVISOR
+  GESTOR
+}
+
+enum QuestionType {
+  MULTIPLE_CHOICE
+  TRUE_FALSE
+  ESSAY
+  IMAGE_BASED
+  VISUAL_DRAWING
+}
+
+enum DifficultyLevel {
+  FACIL
+  MEDIO
+  DIFICIL
+}
+
+enum TestStatus {
+  DRAFT
+  ACTIVE
+  INACTIVE
+  ARCHIVED
+}
+
+enum AttemptStatus {
+  IN_PROGRESS
+  COMPLETED
+  TERMINATED_SECURITY
+  TERMINATED_TIMEOUT
+}
+
+enum EvaluationStatus {
+  PENDING_REVIEW
+  EVALUATED
+  PUBLISHED
+}
+
+model User {
+  id           String        @id @default(uuid())
+  username     String        @unique
+  email        String        @unique
+  passwordHash String
+  role         Role          @default(CANDIDATE)
+  isActive     Boolean       @default(true)
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  // Relações
+  candidateProfile   CandidateProfile?
+  passwordResetTokens PasswordResetToken[]
+  createdTests       Test[]              @relation("AdminCreatedTests")
+  manualEvaluations  Result[]            @relation("EvaluatedByAdmin")
+
+  @@index([email])
+  @@index([role])
+}
+
+model CandidateProfile {
+  id             String         @id @default(uuid())
+  userId         String         @unique
+  user           User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  fullName       String
+  documentNumber String         @unique // BI ou Passaporte
+  documentType   String         @default("BI") // BI ou Passaporte
+  phone          String?
+  jobTitle       String
+  sector         String
+  seniority      SeniorityLevel @default(JUNIOR)
+  notes          String?
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  // Relações
+  assignments    TestAssignment[]
+  attempts       TestAttempt[]
+  reports        AiReport[]
+
+  @@index([documentNumber])
+  @@index([sector])
+  @@index([seniority])
+}
+
+model Test {
+  id                  String          @id @default(uuid())
+  title               String
+  description         String
+  sector              String
+  category            String
+  difficulty          DifficultyLevel @default(MEDIO)
+  recommendedSeniority SeniorityLevel @default(TECNICO)
+  passingScore        Float           @default(70.0) // Nota de corte em percentual
+  durationMinutes     Int             @default(60)
+  maxAttempts         Int             @default(1)
+  status              TestStatus      @default(ACTIVE)
+  createdById         String
+  createdBy           User            @relation("AdminCreatedTests", fields: [createdById], references: [id])
+  createdAt           DateTime        @default(now())
+  updatedAt           DateTime        @updatedAt
+
+  // Relações
+  questions           Question[]
+  assignments         TestAssignment[]
+  attempts            TestAttempt[]
+
+  @@index([sector])
+  @@index([category])
+  @@index([status])
+}
+
+model Question {
+  id                 String       @id @default(uuid())
+  testId             String
+  test               Test         @relation(fields: [testId], references: [id], onDelete: Cascade)
+  statement          String
+  type               QuestionType @default(MULTIPLE_CHOICE)
+  points             Float        @default(10.0)
+  difficulty         DifficultyLevel @default(MEDIO)
+  order              Int          @default(1)
+  correctAnswer      String?      // Para múltipla escolha ou true/false
+  evaluationCriteria String?      // Para dissertativas
+  imageUrl           String?      // Imagem opcional
+  legalSource        String?      // Para conformidade com normas/legislação angolana
+  verificationDate   DateTime?
+  createdAt          DateTime     @default(now())
+  updatedAt          DateTime     @updatedAt
+
+  // Relações
+  options            QuestionOption[]
+  answers            Answer[]
+
+  @@index([testId, order])
+}
+
+model QuestionOption {
+  id         String   @id @default(uuid())
+  questionId String
+  question   Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  label      String   // Ex: opt-1, opt-2
+  text       String
+  isCorrect  Boolean  @default(false)
+  order      Int      @default(1)
+
+  @@index([questionId])
+}
+
+model TestAssignment {
+  id          String           @id @default(uuid())
+  testId      String
+  test        Test             @relation(fields: [testId], references: [id], onDelete: Restrict)
+  candidateId String
+  candidate   CandidateProfile @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  assignedAt  DateTime         @default(now())
+  expiresAt   DateTime?
+  isActive    Boolean          @default(true)
+
+  @@unique([testId, candidateId])
+}
+
+model TestAttempt {
+  id               String           @id @default(uuid())
+  testId           String
+  test             Test             @relation(fields: [testId], references: [id], onDelete: Restrict)
+  candidateId      String
+  candidate        CandidateProfile @relation(fields: [candidateId], references: [id], onDelete: Restrict)
+  attemptNumber    Int              @default(1)
+  status           AttemptStatus    @default(IN_PROGRESS)
+  startedAt        DateTime         @default(now())
+  completedAt      DateTime?
+  timeSpentSeconds Int              @default(0)
+  score            Float            @default(0.0)
+  maxScore         Float            @default(0.0)
+  percentage       Float            @default(0.0)
+  isApproved       Boolean          @default(false)
+
+  // Relações
+  answers          Answer[]
+  result           Result?
+  securityEvents   SecurityEvent[]
+
+  @@index([candidateId])
+  @@index([testId])
+  @@index([status])
+}
+
+model Answer {
+  id           String      @id @default(uuid())
+  attemptId    String
+  attempt      TestAttempt @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+  questionId   String
+  question     Question    @relation(fields: [questionId], references: [id], onDelete: Restrict)
+  selectedOptionId String? // Para múltipla escolha
+  textAnswer   String?     // Para dissertativa
+  drawingData  String?     // Base64 ou coordenadas para desenho visual
+  awardedScore Float       @default(0.0)
+  isCorrect    Boolean     @default(false)
+  feedback     String?
+  evaluatedAt  DateTime?
+
+  @@unique([attemptId, questionId])
+}
+
+model Result {
+  id               String           @id @default(uuid())
+  attemptId        String           @unique
+  attempt          TestAttempt      @relation(fields: [attemptId], references: [id], onDelete: Restrict)
+  status           EvaluationStatus @default(PUBLISHED)
+  totalScore       Float
+  maxScore         Float
+  percentage       Float
+  classification   String           // "Apto" ou "Não Apto"
+  reviewedById     String?
+  reviewedBy       User?            @relation("EvaluatedByAdmin", fields: [reviewedById], references: [id])
+  adminNotes       String?
+  publishedAt      DateTime         @default(now())
+  createdAt        DateTime         @default(now())
+
+  // Relações
+  aiReport         AiReport?
+
+  @@index([classification])
+}
+
+model SecurityEvent {
+  id          String      @id @default(uuid())
+  attemptId   String
+  attempt     TestAttempt @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+  eventType   String      // "tab_switch", "blur", "long_inactivity", "copy_paste"
+  description String
+  timestamp   DateTime    @default(now())
+
+  @@index([attemptId])
+}
+
+model AiGenerationRequest {
+  id          String   @id @default(uuid())
+  topic       String
+  sector      String
+  category    String
+  count       Int
+  difficulty  String
+  seniority   String
+  context     String?
+  rawResponse String?
+  createdAt   DateTime @default(now())
+}
+
+model AiReport {
+  id                String           @id @default(uuid())
+  resultId          String           @unique
+  result            Result           @relation(fields: [resultId], references: [id], onDelete: Cascade)
+  candidateId       String
+  candidate         CandidateProfile @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  summary           String
+  strengths         String           // JSON string list
+  toImprove         String           // JSON string list
+  categoryAnalysis  String           // JSON string
+  recommendations   String           // JSON string list
+  dissertativeNotes String?
+  isReviewed        Boolean          @default(false)
+  createdAt         DateTime         @default(now())
+}
+
+model PasswordResetToken {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  token     String   @unique
+  expiresAt DateTime
+  used      Boolean  @default(false)
+  createdAt DateTime @default(now())
+}

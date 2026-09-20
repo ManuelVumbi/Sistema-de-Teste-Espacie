@@ -1,0 +1,7 @@
+{
+  "name": "Sistema de Testes — Espacie Services",
+  "description": "Plataforma completa de criação, realização, avaliação e análise de testes para candidatos da Espacie Services.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
+
