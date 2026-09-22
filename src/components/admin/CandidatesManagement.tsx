@@ -31,7 +31,9 @@ import {
   Sparkles,
   RotateCcw,
   AlertCircle,
+  Download,
 } from "lucide-react";
+import { generateJobRolePdf } from "../../utils/pdfGenerator";
 import { toast } from "sonner";
 
 export function CandidatesManagement() {
@@ -1103,17 +1105,30 @@ export function CandidatesManagement() {
                               </span>
                             )}
                           </div>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              deletePosition(pos);
-                              toast.success(`Cargo "${pos}" removido da lista oficial.`);
-                            }}
-                            className="text-slate-500 hover:text-rose-400 p-1.5 rounded-lg hover:bg-rose-950/30 transition-colors cursor-pointer"
-                            title="Remover cargo"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
+                          <div className="flex items-center gap-1">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                generateJobRolePdf(pos, tests, candidates, results, attempts);
+                                toast.success(`Download do Relatório do Cargo "${pos}" iniciado.`);
+                              }}
+                              className="text-slate-400 hover:text-emerald-400 p-1.5 rounded-lg hover:bg-emerald-950/30 transition-colors cursor-pointer"
+                              title={`Exportar Relatório Oficial do Cargo ${pos}`}
+                            >
+                              <Download className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                deletePosition(pos);
+                                toast.success(`Cargo "${pos}" removido da lista oficial.`);
+                              }}
+                              className="text-slate-500 hover:text-rose-400 p-1.5 rounded-lg hover:bg-rose-950/30 transition-colors cursor-pointer"
+                              title="Remover cargo"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
                         </div>
                       );
                     })}

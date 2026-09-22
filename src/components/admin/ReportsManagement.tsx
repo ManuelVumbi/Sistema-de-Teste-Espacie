@@ -13,6 +13,7 @@ import {
   CheckCircle2,
   XCircle,
   Sparkles,
+  Briefcase,
 } from "lucide-react";
 import {
   ResponsiveContainer,
@@ -28,15 +29,27 @@ import {
   Legend,
 } from "recharts";
 import { generateGeneralExecutivePdf } from "../../utils/pdfGenerator";
+import { RoleReportsTab } from "./RoleReportsTab";
+import { DEFAULT_POSITIONS } from "../../types";
 import { toast } from "sonner";
 
 export function ReportsManagement() {
-  const { tests, candidates, results, attempts, questions } = useAppStore();
+  const { tests, candidates, results, attempts, questions, positions } = useAppStore();
 
+  const [activeTab, setActiveTab] = useState<"general" | "by-role">("general");
   const [selectedSector, setSelectedSector] = useState<string>("all");
   const [selectedPeriod, setSelectedPeriod] = useState<string>("30d");
 
+  // Total available roles count
+  const totalRolesCount = Array.from(
+    new Set([
+      ...(positions && positions.length > 0 ? positions : DEFAULT_POSITIONS),
+      ...candidates.map((c) => c.jobTitle).filter(Boolean),
+    ])
+  ).length;
+
   // Filtered by sector and period
+
   const now = new Date().getTime();
   const relevantResults = results.filter((r) => {
     if (selectedSector !== "all") {
@@ -123,52 +136,89 @@ export function ReportsManagement() {
             Relatórios Gerais & Inteligência Analítica
           </h2>
           <p className="text-xs sm:text-sm text-slate-400">
-            Gere relatórios executivos auditáveis, rankings e visualizações analíticas de desempenho.
+            Gere relatórios executivos auditáveis, relatórios específicos por cargo, rankings e visualizações analíticas de desempenho.
           </p>
         </div>
 
         <button
           onClick={handleExportConsolidatedPdf}
-          className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs sm:text-sm shadow-md shadow-emerald-950/40 transition-all hover:scale-105"
+          className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs sm:text-sm shadow-md shadow-emerald-950/40 transition-all hover:scale-105 cursor-pointer"
         >
-          <Download className="w-4 h-4" /> Exportar Relatório Executivo (PDF)
+          <Download className="w-4 h-4" /> Exportar Relatório Geral (PDF)
         </button>
       </div>
 
-      {/* Filter Bar */}
-      <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 flex flex-wrap items-center justify-between gap-4">
-        <div className="flex items-center gap-2 text-xs text-slate-400">
-          <Calendar className="w-4 h-4 text-emerald-400" />
-          <span>Período de Análise:</span>
-          <select
-            value={selectedPeriod}
-            onChange={(e) => setSelectedPeriod(e.target.value)}
-            className="bg-slate-950 border border-slate-700 rounded-xl px-3 py-1.5 text-xs text-slate-300 focus:outline-hidden"
+      {/* Mode Navigation Tabs */}
+      <div className="flex items-center gap-2 p-1.5 bg-slate-900 border border-slate-800 rounded-2xl w-fit">
+        <button
+          onClick={() => setActiveTab("general")}
+          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold transition-all cursor-pointer ${
+            activeTab === "general"
+              ? "bg-emerald-500 text-slate-950 shadow-md shadow-emerald-950/40 font-bold"
+              : "text-slate-400 hover:text-slate-200 hover:bg-slate-800/60"
+          }`}
+        >
+          <Layers className="w-4 h-4" /> Visão Geral Consolidada
+        </button>
+        <button
+          onClick={() => setActiveTab("by-role")}
+          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold transition-all cursor-pointer ${
+            activeTab === "by-role"
+              ? "bg-emerald-500 text-slate-950 shadow-md shadow-emerald-950/40 font-bold"
+              : "text-slate-400 hover:text-slate-200 hover:bg-slate-800/60"
+          }`}
+        >
+          <Briefcase className="w-4 h-4" /> Relatórios por Cargo
+          <span
+            className={`text-[10px] px-2 py-0.5 rounded-full font-mono font-bold ${
+              activeTab === "by-role"
+                ? "bg-slate-950/20 text-slate-950"
+                : "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30"
+            }`}
           >
-            <option value="7d">Últimos 7 dias</option>
-            <option value="30d">Últimos 30 dias</option>
-            <option value="90d">Último Trimestre</option>
-            <option value="all">Todo o Histórico</option>
-          </select>
-        </div>
-
-        <div className="flex items-center gap-2 text-xs text-slate-400">
-          <Filter className="w-4 h-4 text-amber-400" />
-          <span>Setor:</span>
-          <select
-            value={selectedSector}
-            onChange={(e) => setSelectedSector(e.target.value)}
-            className="bg-slate-950 border border-slate-700 rounded-xl px-3 py-1.5 text-xs text-slate-300 focus:outline-hidden"
-          >
-            <option value="all">Todos os Setores</option>
-            {Array.from(new Set(tests.map((t) => t.sector))).map((sec) => (
-              <option key={sec} value={sec}>
-                {sec}
-              </option>
-            ))}
-          </select>
-        </div>
+            {totalRolesCount}
+          </span>
+        </button>
       </div>
+
+      {activeTab === "by-role" ? (
+        <RoleReportsTab />
+      ) : (
+        <>
+          {/* Filter Bar */}
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 flex flex-wrap items-center justify-between gap-4">
+            <div className="flex items-center gap-2 text-xs text-slate-400">
+              <Calendar className="w-4 h-4 text-emerald-400" />
+              <span>Período de Análise:</span>
+              <select
+                value={selectedPeriod}
+                onChange={(e) => setSelectedPeriod(e.target.value)}
+                className="bg-slate-950 border border-slate-700 rounded-xl px-3 py-1.5 text-xs text-slate-300 focus:outline-hidden"
+              >
+                <option value="7d">Últimos 7 dias</option>
+                <option value="30d">Últimos 30 dias</option>
+                <option value="90d">Último Trimestre</option>
+                <option value="all">Todo o Histórico</option>
+              </select>
+            </div>
+
+            <div className="flex items-center gap-2 text-xs text-slate-400">
+              <Filter className="w-4 h-4 text-amber-400" />
+              <span>Setor:</span>
+              <select
+                value={selectedSector}
+                onChange={(e) => setSelectedSector(e.target.value)}
+                className="bg-slate-950 border border-slate-700 rounded-xl px-3 py-1.5 text-xs text-slate-300 focus:outline-hidden"
+              >
+                <option value="all">Todos os Setores</option>
+                {Array.from(new Set(tests.map((t) => t.sector))).map((sec) => (
+                  <option key={sec} value={sec}>
+                    {sec}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
 
       {/* KPI Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
@@ -311,6 +361,8 @@ export function ReportsManagement() {
           )}
         </div>
       </div>
-    </div>
-  );
+    </>
+  )}
+</div>
+);
 }

@@ -28,8 +28,10 @@ import {
   FileText,
   AlertTriangle,
   Loader2,
+  Briefcase,
 } from "lucide-react";
-import { generateIndividualPdf } from "../../utils/pdfGenerator";
+import { generateIndividualPdf, generateJobRolePdf } from "../../utils/pdfGenerator";
+import { DEFAULT_POSITIONS } from "../../types";
 import { aiService } from "../../services/aiService";
 import { toast } from "sonner";
 
@@ -49,11 +51,21 @@ export function ResultsManagement() {
     authorizedRetests,
     authorizeRetest,
     revokeRetestAuthorization,
+    positions,
   } = useAppStore();
 
   const [searchTerm, setSearchTerm] = useState("");
   const [filterTest, setFilterTest] = useState<string>("all");
   const [filterClassification, setFilterClassification] = useState<string>("all");
+  const [filterJobTitle, setFilterJobTitle] = useState<string>("all");
+
+  // Available job titles for filter
+  const availablePositions = Array.from(
+    new Set([
+      ...(positions && positions.length > 0 ? positions : DEFAULT_POSITIONS),
+      ...candidates.map((c) => c.jobTitle).filter(Boolean),
+    ])
+  ).sort((a, b) => a.localeCompare(b, "pt-PT"));
 
   // Audit modal state
   const [activeAttemptModalId, setActiveAttemptModalId] = useState<string | null>(
@@ -81,6 +93,7 @@ export function ResultsManagement() {
     const matchesSearch =
       cand?.fullName.toLowerCase().includes(searchTerm.toLowerCase()) ||
       cand?.documentNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      cand?.jobTitle?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       test?.title.toLowerCase().includes(searchTerm.toLowerCase());
 
     const matchesTest = filterTest === "all" || r.testId === filterTest;
@@ -88,7 +101,10 @@ export function ResultsManagement() {
     const matchesClass =
       filterClassification === "all" || r.classification === filterClassification;
 
-    return matchesSearch && matchesTest && matchesClass;
+    const matchesJob =
+      filterJobTitle === "all" || (cand && cand.jobTitle === filterJobTitle);
+
+    return matchesSearch && matchesTest && matchesClass && matchesJob;
   });
 
   // Selected attempt for audit modal
@@ -216,6 +232,19 @@ export function ResultsManagement() {
           </select>
 
           <select
+            value={filterJobTitle}
+            onChange={(e) => setFilterJobTitle(e.target.value)}
+            className="bg-slate-950 border border-slate-700 rounded-xl px-3 py-1.5 text-xs text-slate-300 focus:outline-hidden max-w-xs"
+          >
+            <option value="all">Todos os Cargos</option>
+            {availablePositions.map((pos) => (
+              <option key={pos} value={pos}>
+                {pos}
+              </option>
+            ))}
+          </select>
+
+          <select
             value={filterClassification}
             onChange={(e) => setFilterClassification(e.target.value)}
             className="bg-slate-950 border border-slate-700 rounded-xl px-3 py-1.5 text-xs text-slate-300 focus:outline-hidden"
@@ -224,6 +253,19 @@ export function ResultsManagement() {
             <option value="Apto">Apenas Aptos</option>
             <option value="Não Apto">Apenas Não Aptos</option>
           </select>
+
+          {filterJobTitle !== "all" && (
+            <button
+              onClick={() => {
+                generateJobRolePdf(filterJobTitle, tests, candidates, results, attempts);
+                toast.success(`Relatório do Cargo "${filterJobTitle}" descarregado.`);
+              }}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs shadow-sm transition-colors cursor-pointer shrink-0"
+              title={`Exportar Relatório Oficial do Cargo ${filterJobTitle}`}
+            >
+              <Download className="w-3.5 h-3.5" /> PDF do Cargo
+            </button>
+          )}
         </div>
       </div>
 

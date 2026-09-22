@@ -684,3 +684,568 @@ export function generateGeneralExecutivePdf(
 
   doc.save(`Relatorio_Executivo_Geral_Espacie_${new Date().toISOString().split("T")[0]}.pdf`);
 }
+
+/**
+ * Generates an official executive and technical report for a specific job role (Cargo).
+ */
+export function generateJobRolePdf(
+  roleName: string,
+  tests: Test[],
+  candidates: Candidate[],
+  results: Result[],
+  attempts: TestAttempt[]
+) {
+  const doc = new jsPDF({
+    orientation: "portrait",
+    unit: "mm",
+    format: "a4",
+  });
+
+  const pageWidth = doc.internal.pageSize.getWidth();
+
+  // Draw Header with Espacie Branding
+  drawEspaciePdfHeader(
+    doc,
+    pageWidth,
+    "RELATÓRIO TÉCNICO DE AVALIAÇÃO POR CARGO",
+    `Espacie Services | Cargo: ${roleName.toUpperCase()}`,
+    { text: "CARGO", isPositive: true }
+  );
+
+  let y = 47;
+
+  // Filter candidates matching this role (case-insensitive)
+  const roleCandidates = candidates.filter(
+    (c) => c.jobTitle && c.jobTitle.trim().toLowerCase() === roleName.trim().toLowerCase()
+  );
+
+  // Filter tests associated with this role
+  const roleTests = tests.filter((t) => {
+    const titleMatch = t.title.toLowerCase().includes(roleName.toLowerCase());
+    const catMatch = t.category.toLowerCase().includes(roleName.toLowerCase());
+    const candMatch = roleCandidates.some((c) => (c.assignedTestIds || []).includes(t.id));
+    return titleMatch || catMatch || candMatch;
+  });
+
+  // Filter results for this role (either candidate's jobTitle matches, or test belongs to role)
+  const roleResults = results.filter((r) => {
+    const cand = candidates.find((c) => c.id === r.candidateId);
+    if (cand && cand.jobTitle && cand.jobTitle.trim().toLowerCase() === roleName.trim().toLowerCase()) {
+      return true;
+    }
+    const test = tests.find((t) => t.id === r.testId);
+    if (test && (test.title.toLowerCase().includes(roleName.toLowerCase()) || test.category.toLowerCase().includes(roleName.toLowerCase()))) {
+      return true;
+    }
+    return false;
+  });
+
+  // Determine primary sector
+  const sector =
+    roleCandidates.find((c) => c.sector)?.sector ||
+    roleTests.find((t) => t.sector)?.sector ||
+    "Operacional / Industrial";
+
+  // KPIs
+  const totalRegistered = roleCandidates.length;
+  const totalEvaluated = roleResults.length;
+  const aptoCount = roleResults.filter((r) => r.classification === "Apto").length;
+  const nonAptoCount = totalEvaluated - aptoCount;
+  const approvalRate = totalEvaluated > 0 ? Math.round((aptoCount / totalEvaluated) * 100) : 0;
+  const avgScore =
+    totalEvaluated > 0
+      ? Math.round((roleResults.reduce((acc, r) => acc + r.percentage, 0) / totalEvaluated) * 10) / 10
+      : 0;
+
+  // Scope & Metadata Table
+  autoTable(doc, {
+    startY: y,
+    theme: "plain",
+    body: [
+      [
+        `CARGO / POSIÇÃO AVALIADA\n${roleName}`,
+        `SETOR DE ATIVIDADE\n${sector}`,
+        `BASE REGULAMENTAR\nLGT 12/23 & Dec. 31/94`,
+        `DATA DE EMISSÃO\n${new Date().toLocaleDateString("pt-AO")}`,
+      ],
+    ],
+    bodyStyles: {
+      fontSize: 8.5,
+      textColor: [10, 37, 64],
+      fillColor: [241, 245, 249],
+      cellPadding: 3.5,
+      fontStyle: "bold",
+      halign: "center",
+    },
+  });
+
+  y = (doc as any).lastAutoTable.finalY + 4;
+
+  // KPI Dashboard Cards
+  autoTable(doc, {
+    startY: y,
+    theme: "plain",
+    body: [
+      [
+        `CANDIDATOS\n${totalRegistered}`,
+        `AVALIAÇÕES\n${totalEvaluated}`,
+        `APTOS\n${aptoCount} (${approvalRate}%)`,
+        `NÃO APTOS\n${nonAptoCount}`,
+        `MÉDIA TÉCNICA\n${avgScore}%`,
+      ],
+    ],
+    bodyStyles: {
+      fontSize: 8.5,
+      fontStyle: "bold",
+      textColor: [10, 37, 64],
+      halign: "center",
+      cellPadding: 3.5,
+      fillColor: [240, 249, 255],
+    },
+  });
+
+  y = (doc as any).lastAutoTable.finalY + 7;
+
+  // Section 1: Associated Technical Tests
+  if (roleTests.length > 0) {
+    doc.setFontSize(10.5);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(10, 37, 64);
+    doc.text("PROVAS TÉCNICAS E MÓDULOS REGISTADOS PARA O CARGO", 14, y);
+    y += 3.5;
+
+    const testRows = roleTests.map((t) => [
+      t.title,
+      t.sector,
+      t.difficulty,
+      `${t.passingScore}%`,
+      `${t.durationMinutes} min`,
+      t.isActive ? "Ativo" : "Inativo",
+    ]);
+
+    autoTable(doc, {
+      startY: y,
+      theme: "grid",
+      head: [["Prova Técnica", "Setor", "Dificuldade", "Nota de Corte", "Duração", "Estado"]],
+      body: testRows,
+      headStyles: {
+        fillColor: [10, 37, 64],
+        textColor: [255, 255, 255],
+        fontSize: 7.5,
+        fontStyle: "bold",
+      },
+      bodyStyles: {
+        fontSize: 7.2,
+        textColor: [15, 23, 42],
+        cellPadding: 2,
+      },
+      columnStyles: {
+        2: { halign: "center" },
+        3: { halign: "center", fontStyle: "bold" },
+        4: { halign: "center" },
+        5: { halign: "center" },
+      },
+    });
+
+    y = (doc as any).lastAutoTable.finalY + 7;
+  }
+
+  // Section 2: Results Table (Ranking of Candidates for this Role)
+  doc.setFontSize(10.5);
+  doc.setFont("helvetica", "bold");
+  doc.setTextColor(10, 37, 64);
+  doc.text(`QUADRO CLASSIFICATIVO DOS CANDIDATOS — ${roleName.toUpperCase()}`, 14, y);
+  y += 3.5;
+
+  if (roleResults.length > 0) {
+    const sortedResults = [...roleResults].sort(
+      (a, b) => b.percentage - a.percentage || b.totalScore - a.totalScore
+    );
+
+    const candidateRows = sortedResults.map((r, idx) => {
+      const cand = candidates.find((c) => c.id === r.candidateId);
+      const test = tests.find((t) => t.id === r.testId);
+      return [
+        `#${idx + 1}`,
+        cand ? cand.fullName : "Candidato",
+        cand ? `${cand.documentType} ${cand.documentNumber}` : "-",
+        cand ? cand.seniority : "-",
+        test ? test.title : "-",
+        `${r.totalScore}/${r.maxScore} (${r.percentage}%)`,
+        r.classification.toUpperCase(),
+        new Date(r.publishedAt).toLocaleDateString("pt-AO"),
+      ];
+    });
+
+    autoTable(doc, {
+      startY: y,
+      theme: "striped",
+      head: [["Pos.", "Candidato", "Documento", "Categoria / Nível", "Prova Realizada", "Nota", "Parecer", "Data"]],
+      body: candidateRows,
+      headStyles: {
+        fillColor: [14, 165, 233], // Sky Blue
+        textColor: [255, 255, 255],
+        fontSize: 7.5,
+        fontStyle: "bold",
+      },
+      bodyStyles: {
+        fontSize: 7,
+        textColor: [15, 23, 42],
+        cellPadding: 2,
+      },
+      columnStyles: {
+        0: { cellWidth: 10, halign: "center", fontStyle: "bold" },
+        5: { halign: "center", fontStyle: "bold" },
+        6: { halign: "center", fontStyle: "bold" },
+        7: { halign: "center" },
+      },
+      alternateRowStyles: {
+        fillColor: [248, 250, 252],
+      },
+    });
+
+    y = (doc as any).lastAutoTable.finalY + 7;
+  } else {
+    // Empty state notice
+    autoTable(doc, {
+      startY: y,
+      theme: "plain",
+      body: [
+        [
+          `Nenhuma avaliação concluída até o momento para o cargo de ${roleName}.\n` +
+            (roleCandidates.length > 0
+              ? `Existem ${roleCandidates.length} candidato(s) registado(s) neste cargo aguardando realização das provas técnicas agendadas.`
+              : `Não constam candidatos ativos ou testes realizados para este cargo no período selecionado.`),
+        ],
+      ],
+      bodyStyles: {
+        fontSize: 8,
+        textColor: [100, 116, 139],
+        fillColor: [248, 250, 252],
+        cellPadding: 5,
+        halign: "center",
+      },
+    });
+
+    y = (doc as any).lastAutoTable.finalY + 7;
+
+    // List of registered candidates if any
+    if (roleCandidates.length > 0) {
+      doc.setFontSize(9.5);
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(10, 37, 64);
+      doc.text("CANDIDATOS REGISTADOS AGUARDANDO AVALIAÇÃO", 14, y);
+      y += 3;
+
+      const waitingRows = roleCandidates.map((c, i) => [
+        `#${i + 1}`,
+        c.fullName,
+        `${c.documentType} ${c.documentNumber}`,
+        c.seniority || "-",
+        c.phone || c.email || "-",
+        c.isActive ? "Ativo no Sistema" : "Inativo",
+      ]);
+
+      autoTable(doc, {
+        startY: y,
+        theme: "grid",
+        head: [["Item", "Nome Completo", "Documento", "Nível / Senioridade", "Contato", "Status"]],
+        body: waitingRows,
+        headStyles: {
+          fillColor: [100, 116, 139],
+          textColor: [255, 255, 255],
+          fontSize: 7.5,
+        },
+        bodyStyles: {
+          fontSize: 7,
+          cellPadding: 2,
+        },
+      });
+
+      y = (doc as any).lastAutoTable.finalY + 7;
+    }
+  }
+
+  // Section 3: Seniority Level Breakdown (if space allows or add page)
+  const seniorityMap: Record<string, { total: number; evaluated: number; aptos: number; scores: number[] }> = {};
+  roleCandidates.forEach((c) => {
+    const sen = c.seniority || "Geral";
+    if (!seniorityMap[sen]) seniorityMap[sen] = { total: 0, evaluated: 0, aptos: 0, scores: [] };
+    seniorityMap[sen].total += 1;
+  });
+  roleResults.forEach((r) => {
+    const cand = candidates.find((c) => c.id === r.candidateId);
+    const sen = cand?.seniority || "Geral";
+    if (!seniorityMap[sen]) seniorityMap[sen] = { total: 0, evaluated: 0, aptos: 0, scores: [] };
+    seniorityMap[sen].evaluated += 1;
+    seniorityMap[sen].scores.push(r.percentage);
+    if (r.classification === "Apto") seniorityMap[sen].aptos += 1;
+  });
+
+  if (Object.keys(seniorityMap).length > 0) {
+    if (y > 220) {
+      doc.addPage();
+      y = 20;
+    }
+
+    doc.setFontSize(10.5);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(10, 37, 64);
+    doc.text("DISTRIBUIÇÃO DE DESEMPENHO POR NÍVEL DE SENIORIDADE", 14, y);
+    y += 3.5;
+
+    const seniorityRows = Object.entries(seniorityMap).map(([sen, d]) => {
+      const rate = d.evaluated > 0 ? `${Math.round((d.aptos / d.evaluated) * 100)}%` : "-";
+      const avg =
+        d.scores.length > 0
+          ? `${Math.round((d.scores.reduce((a, b) => a + b, 0) / d.scores.length) * 10) / 10}%`
+          : "-";
+      return [sen, d.total.toString(), d.evaluated.toString(), d.aptos.toString(), rate, avg];
+    });
+
+    autoTable(doc, {
+      startY: y,
+      theme: "grid",
+      head: [["Nível / Categoria Profissional", "Candidatos", "Avaliados", "Aptos", "Taxa de Aptidão", "Média Técnica"]],
+      body: seniorityRows,
+      headStyles: {
+        fillColor: [10, 37, 64],
+        textColor: [255, 255, 255],
+        fontSize: 7.5,
+        fontStyle: "bold",
+      },
+      bodyStyles: {
+        fontSize: 7.2,
+        textColor: [15, 23, 42],
+        cellPadding: 2,
+      },
+      columnStyles: {
+        1: { halign: "center" },
+        2: { halign: "center" },
+        3: { halign: "center" },
+        4: { halign: "center", fontStyle: "bold" },
+        5: { halign: "center", fontStyle: "bold" },
+      },
+    });
+
+    y = (doc as any).lastAutoTable.finalY + 7;
+  }
+
+  // Section 4: Formal Validation & Signatures
+  if (y > 230) {
+    doc.addPage();
+    y = 20;
+  }
+
+  doc.setFontSize(9);
+  doc.setFont("helvetica", "bold");
+  doc.setTextColor(10, 37, 64);
+  doc.text("PARECER TÉCNICO E TERMO DE HOMOLOGAÇÃO", 14, y);
+  y += 4;
+
+  doc.setFontSize(7.5);
+  doc.setFont("helvetica", "normal");
+  doc.setTextColor(71, 85, 105);
+  const declarationText =
+    `Certificamos que as avaliações de competências técnicas consolidadas neste relatório para o cargo de ${roleName.toUpperCase()} ` +
+    `foram conduzidas em observância às normas de segurança da Espacie Services, matriz de qualificação técnica da indústria e ` +
+    `em conformidade com a Lei Geral do Trabalho da República de Angola (Lei n.º 12/23) e o Decreto Executivo n.º 31/94. ` +
+    `Os resultados aqui apurados expressam o índice de prontidão profissional dos candidatos submetidos ao processo seletivo e avaliativo.`;
+
+  const splitDeclaration = doc.splitTextToSize(declarationText, pageWidth - 28);
+  doc.text(splitDeclaration, 14, y);
+  y += splitDeclaration.length * 3.8 + 12;
+
+  // Signature lines
+  const colWidth = (pageWidth - 40) / 2;
+  const x1 = 14;
+  const x2 = 14 + colWidth + 12;
+
+  doc.setDrawColor(148, 163, 184);
+  doc.setLineWidth(0.3);
+  doc.line(x1, y, x1 + colWidth, y);
+  doc.line(x2, y, x2 + colWidth, y);
+
+  doc.setFontSize(7.5);
+  doc.setFont("helvetica", "bold");
+  doc.setTextColor(15, 23, 42);
+  doc.text("Responsável Técnico / Avaliador Especialista", x1 + colWidth / 2, y + 4, {
+    align: "center",
+  });
+  doc.text("Direção de Recursos Humanos — Espacie Services", x2 + colWidth / 2, y + 4, {
+    align: "center",
+  });
+
+  doc.setFontSize(6.8);
+  doc.setFont("helvetica", "normal");
+  doc.setTextColor(100, 116, 139);
+  doc.text("Assinatura & Carimbo Técnico", x1 + colWidth / 2, y + 7.5, { align: "center" });
+  doc.text("Homologação Oficial de Quadro", x2 + colWidth / 2, y + 7.5, { align: "center" });
+
+  // Footer on all pages
+  const pageCount = (doc as any).internal.getNumberOfPages();
+  for (let i = 1; i <= pageCount; i++) {
+    doc.setPage(i);
+    doc.setFontSize(7.2);
+    doc.setTextColor(148, 163, 184);
+    doc.text(
+      `Espacie Services — Relatório Oficial por Cargo: ${roleName} | Documento Auditável | Gerado em ${new Date().toLocaleDateString("pt-AO")} | Página ${i} de ${pageCount}`,
+      pageWidth / 2,
+      290,
+      { align: "center" }
+    );
+  }
+
+  const safeFileName = roleName.replace(/[^a-zA-Z0-9]/g, "_");
+  doc.save(`Relatorio_Cargo_${safeFileName}_Espacie_${new Date().toISOString().split("T")[0]}.pdf`);
+}
+
+/**
+ * Generates an executive consolidated report analyzing all job roles (Cargos) in comparison.
+ */
+export function generateAllJobRolesPdf(
+  roles: string[],
+  tests: Test[],
+  candidates: Candidate[],
+  results: Result[],
+  attempts: TestAttempt[]
+) {
+  const doc = new jsPDF({
+    orientation: "portrait",
+    unit: "mm",
+    format: "a4",
+  });
+
+  const pageWidth = doc.internal.pageSize.getWidth();
+
+  drawEspaciePdfHeader(
+    doc,
+    pageWidth,
+    "RELATÓRIO COMPARATIVO CONSOLIDADO POR CARGO",
+    "Espacie Services — Análise Estratégica de Competências por Função",
+    { text: "TODOS CARGOS", isPositive: true }
+  );
+
+  let y = 47;
+
+  // Calculate table rows for all roles
+  const tableRows = roles.map((role) => {
+    const roleCandidates = candidates.filter(
+      (c) => c.jobTitle && c.jobTitle.trim().toLowerCase() === role.trim().toLowerCase()
+    );
+    const roleResults = results.filter((r) => {
+      const cand = candidates.find((c) => c.id === r.candidateId);
+      if (cand && cand.jobTitle && cand.jobTitle.trim().toLowerCase() === role.trim().toLowerCase()) {
+        return true;
+      }
+      const test = tests.find((t) => t.id === r.testId);
+      return (
+        test &&
+        (test.title.toLowerCase().includes(role.toLowerCase()) ||
+          test.category.toLowerCase().includes(role.toLowerCase()))
+      );
+    });
+
+    const sec =
+      roleCandidates.find((c) => c.sector)?.sector ||
+      tests.find(
+        (t) =>
+          t.title.toLowerCase().includes(role.toLowerCase()) ||
+          t.category.toLowerCase().includes(role.toLowerCase())
+      )?.sector ||
+      "Geral";
+
+    const totalCand = roleCandidates.length;
+    const totalEval = roleResults.length;
+    const aptos = roleResults.filter((r) => r.classification === "Apto").length;
+    const rate = totalEval > 0 ? `${Math.round((aptos / totalEval) * 100)}%` : "-";
+    const avg =
+      totalEval > 0
+        ? `${Math.round((roleResults.reduce((a, b) => a + b.percentage, 0) / totalEval) * 10) / 10}%`
+        : "-";
+
+    return [role, sec, totalCand.toString(), totalEval.toString(), aptos.toString(), rate, avg];
+  });
+
+  // KPI Summary across all roles
+  const evaluatedRolesCount = roles.filter((role) => {
+    return results.some((r) => {
+      const cand = candidates.find((c) => c.id === r.candidateId);
+      return cand && cand.jobTitle && cand.jobTitle.trim().toLowerCase() === role.trim().toLowerCase();
+    });
+  }).length;
+
+  autoTable(doc, {
+    startY: y,
+    theme: "plain",
+    body: [
+      [
+        `TOTAL DE CARGOS MONITORIZADOS\n${roles.length} Cargos`,
+        `CARGOS COM AVALIAÇÕES ATIVAS\n${evaluatedRolesCount} Cargos`,
+        `TOTAL DE CANDIDATOS\n${candidates.length} Registados`,
+        `TOTAL DE RESULTADOS\n${results.length} Provas`,
+      ],
+    ],
+    bodyStyles: {
+      fontSize: 8.5,
+      textColor: [10, 37, 64],
+      fillColor: [240, 249, 255],
+      cellPadding: 3.5,
+      fontStyle: "bold",
+      halign: "center",
+    },
+  });
+
+  y = (doc as any).lastAutoTable.finalY + 6;
+
+  doc.setFontSize(10.5);
+  doc.setFont("helvetica", "bold");
+  doc.setTextColor(10, 37, 64);
+  doc.text("MATRIZ COMPARATIVA DE DESEMPENHO POR CARGO / FUNÇÃO", 14, y);
+  y += 3.5;
+
+  autoTable(doc, {
+    startY: y,
+    theme: "grid",
+    head: [["Cargo / Função", "Setor", "Candidatos", "Avaliados", "Aptos", "Taxa Aptidão", "Média Técnica"]],
+    body: tableRows,
+    headStyles: {
+      fillColor: [10, 37, 64],
+      textColor: [255, 255, 255],
+      fontSize: 7.5,
+      fontStyle: "bold",
+    },
+    bodyStyles: {
+      fontSize: 7,
+      textColor: [15, 23, 42],
+      cellPadding: 2,
+    },
+    columnStyles: {
+      2: { halign: "center" },
+      3: { halign: "center" },
+      4: { halign: "center" },
+      5: { halign: "center", fontStyle: "bold" },
+      6: { halign: "center", fontStyle: "bold" },
+    },
+    alternateRowStyles: {
+      fillColor: [248, 250, 252],
+    },
+  });
+
+  // Footer on all pages
+  const pageCount = (doc as any).internal.getNumberOfPages();
+  for (let i = 1; i <= pageCount; i++) {
+    doc.setPage(i);
+    doc.setFontSize(7.2);
+    doc.setTextColor(148, 163, 184);
+    doc.text(
+      `Espacie Services — Relatório Comparativo Geral por Cargos | Gerado em ${new Date().toLocaleDateString("pt-AO")} | Página ${i} de ${pageCount}`,
+      pageWidth / 2,
+      290,
+      { align: "center" }
+    );
+  }
+
+  doc.save(`Relatorio_Comparativo_Cargos_Espacie_${new Date().toISOString().split("T")[0]}.pdf`);
+}
+
