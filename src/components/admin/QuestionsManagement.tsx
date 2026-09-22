@@ -27,6 +27,7 @@ import {
   Upload,
   Paperclip,
   FileText,
+  ShieldCheck,
 } from "lucide-react";
 import { aiService } from "../../services/aiService";
 import { toast } from "sonner";
@@ -336,7 +337,14 @@ export function QuestionsManagement() {
             </p>
             <div className="pt-2">
               <button
-                onClick={() => setIsAiModalOpen(true)}
+                onClick={() => {
+                  setGeneratedPreview(null);
+                  setAiDifficulty(test?.difficulty || "Médio");
+                  if (!aiSourceMaterial && test?.sourceMaterial) {
+                    setAiSourceMaterial(test.sourceMaterial);
+                  }
+                  setIsAiModalOpen(true);
+                }}
                 className="px-5 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs shadow-md inline-flex items-center gap-2"
               >
                 <Sparkles className="w-4 h-4" /> Iniciar Gerador de Questões com IA
@@ -467,19 +475,19 @@ export function QuestionsManagement() {
 
       {/* Modal: AI Question Generator */}
       {isAiModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-xs p-4 overflow-y-auto">
-          <div className="w-full max-w-3xl bg-slate-900 border border-slate-700 rounded-3xl p-6 sm:p-8 shadow-2xl space-y-6 my-8">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-4">
+        <div className="fixed inset-0 z-50 flex items-start sm:items-center justify-center bg-slate-950/85 backdrop-blur-xs p-3 sm:p-6 overflow-y-auto min-h-full">
+          <div className="w-full max-w-3xl bg-slate-900 border border-slate-700 rounded-2xl sm:rounded-3xl shadow-2xl flex flex-col my-auto max-h-[92vh] overflow-hidden">
+            <div className="flex items-center justify-between border-b border-slate-800 p-4 sm:p-6 shrink-0 bg-slate-900/95">
               <div className="flex items-center gap-2">
                 <div className="p-2 rounded-xl bg-emerald-500/20 text-emerald-400">
                   <Sparkles className="w-5 h-5" />
                 </div>
                 <div>
-                  <h3 className="text-lg font-bold text-slate-100">
+                  <h3 className="text-base sm:text-lg font-bold text-slate-100">
                     Gerador de Perguntas Assistido por IA
                   </h3>
                   <p className="text-xs text-slate-400">
-                    Geração técnica contextualizada com diretrizes de conformidade para Angola.
+                    Geração técnica com obediência estrita à base obrigatória e normas de Angola.
                   </p>
                 </div>
               </div>
@@ -491,23 +499,35 @@ export function QuestionsManagement() {
               </button>
             </div>
 
-            {/* Target Role & Literature Grounding Banner */}
-            <div className="p-3.5 rounded-2xl bg-emerald-950/30 border border-emerald-500/30 space-y-1">
-              <div className="flex items-center justify-between">
-                <span className="text-[11px] uppercase tracking-wider font-bold text-emerald-400">
-                  Título do Teste / Posição Avaliada *
-                </span>
-                <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">
-                  Base Obrigatória
-                </span>
+            <div className="p-4 sm:p-6 overflow-y-auto space-y-5 flex-1">
+              {/* Target Role & Mandatory Base Status Banner */}
+              <div className="p-4 rounded-2xl bg-emerald-950/30 border border-emerald-500/30 space-y-2">
+                <div className="flex items-center justify-between flex-wrap gap-2">
+                  <span className="text-[11px] uppercase tracking-wider font-bold text-emerald-400 flex items-center gap-1.5">
+                    <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
+                    Base Obrigatória de Geração
+                  </span>
+                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md border ${
+                    aiSourceMaterial.trim() || test.sourceMaterial
+                      ? "bg-emerald-500/20 text-emerald-300 border-emerald-500/40"
+                      : "bg-sky-500/20 text-sky-300 border-sky-500/40"
+                  }`}>
+                    {aiSourceMaterial.trim() || test.sourceMaterial
+                      ? `Documento Anexado (${(aiSourceMaterial.trim() || test.sourceMaterial || "").length.toLocaleString()} caracteres)`
+                      : `Diretrizes Técnicas de ${test.title}`}
+                  </span>
+                </div>
+                <p className="text-sm font-bold text-slate-100">
+                  {test.title} • <span className="text-emerald-400 font-semibold">{test.category}</span>
+                </p>
+                <p className="text-[11px] text-slate-300 leading-relaxed">
+                  {aiSourceMaterial.trim() || test.sourceMaterial ? (
+                    <>As questões geradas serão formuladas e extraídas com <b>fidelidade estrita aos procedimentos, regras e especificações do documento fornecido abaixo</b>.</>
+                  ) : (
+                    <>Nenhum arquivo externo anexado. As questões serão geradas com base nas <b>rotinas operacionais obrigatórias, normas de Angola (LGT Lei 12/23 e Dec. 31/94) e critérios técnicos</b> do cargo de <b>{test.title}</b>.</>
+                  )}
+                </p>
               </div>
-              <p className="text-sm font-bold text-slate-100">
-                {test.title}
-              </p>
-              <p className="text-[11px] text-slate-300 leading-relaxed">
-                Todas as questões geradas serão formuladas com base estrita na literatura e fontes técnicas fornecidas abaixo, focando com rigor nas competências práticas e operacionais exigidas para <b>{test.title}</b>.
-              </p>
-            </div>
 
             {/* Prompt Config */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs">
@@ -798,20 +818,21 @@ export function QuestionsManagement() {
                 </div>
               </div>
             )}
+            </div>
           </div>
         </div>
       )}
 
       {/* Modal: Manual Question Form */}
       {isQuestionModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-xs p-4 overflow-y-auto">
-          <div className="w-full max-w-2xl bg-slate-900 border border-slate-700 rounded-3xl p-6 sm:p-8 shadow-2xl space-y-6 my-8">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-4">
+        <div className="fixed inset-0 z-50 flex items-start sm:items-center justify-center bg-slate-950/85 backdrop-blur-xs p-3 sm:p-6 overflow-y-auto min-h-full">
+          <div className="w-full max-w-2xl bg-slate-900 border border-slate-700 rounded-2xl sm:rounded-3xl shadow-2xl flex flex-col my-auto max-h-[92vh] overflow-hidden">
+            <div className="flex items-center justify-between border-b border-slate-800 p-4 sm:p-6 shrink-0 bg-slate-900/95">
               <div className="flex items-center gap-2">
                 <div className="p-2 rounded-xl bg-emerald-500/20 text-emerald-400">
                   <Plus className="w-5 h-5" />
                 </div>
-                <h3 className="text-lg font-bold text-slate-100">
+                <h3 className="text-base sm:text-lg font-bold text-slate-100">
                   {editingQuestionId ? "Editar Pergunta" : "Criar Nova Pergunta"}
                 </h3>
               </div>
@@ -823,7 +844,7 @@ export function QuestionsManagement() {
               </button>
             </div>
 
-            <form onSubmit={handleSaveQuestion} className="space-y-4 text-xs">
+            <form onSubmit={handleSaveQuestion} className="p-4 sm:p-6 overflow-y-auto space-y-4 text-xs flex-1">
               <div className="space-y-1">
                 <label className="text-slate-300 font-semibold block">
                   Enunciado da Pergunta *

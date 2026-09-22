@@ -15,6 +15,17 @@ const PORT = 3000;
 
 app.use(express.json({ limit: "25mb" }));
 
+// CORS headers for APK, mobile webviews (Capacitor/Cordova) and cross-origin requests
+app.use((req, res, next) => {
+  res.header("Access-Control-Allow-Origin", "*");
+  res.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
+  res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept, Authorization");
+  if (req.method === "OPTIONS") {
+    return res.sendStatus(200);
+  }
+  next();
+});
+
 // Lazy Gemini AI client initialization with telemetry headers
 let aiClient: GoogleGenAI | null = null;
 function getAiClient(): GoogleGenAI | null {
