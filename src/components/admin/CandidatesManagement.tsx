@@ -450,39 +450,41 @@ export function CandidatesManagement() {
 
       {/* Modal: Create or Edit Candidate */}
       {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-xs p-4 overflow-y-auto">
-          <div className="w-full max-w-xl bg-slate-900 border border-slate-700 rounded-3xl p-6 sm:p-8 shadow-2xl space-y-6 my-8">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-4">
+        <div className="fixed inset-0 z-50 flex items-start sm:items-center justify-center bg-slate-950/85 backdrop-blur-xs p-3 sm:p-4 overflow-y-auto">
+          <div className="w-full max-w-xl bg-slate-900 border border-slate-700 rounded-3xl p-5 sm:p-7 shadow-2xl space-y-4 my-auto sm:my-8 max-h-[92vh] flex flex-col">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-3 shrink-0">
               <div className="flex items-center gap-2">
                 <div className="p-2 rounded-xl bg-emerald-500/20 text-emerald-400">
                   <UserPlus className="w-5 h-5" />
                 </div>
-                <h3 className="text-lg font-bold text-slate-100">
+                <h3 className="text-base sm:text-lg font-bold text-slate-100">
                   {editingId ? "Editar Candidato" : "Cadastrar Novo Candidato"}
                 </h3>
               </div>
               <button
+                type="button"
                 onClick={resetForm}
-                className="p-1 rounded-lg text-slate-400 hover:text-slate-200"
+                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-slate-800 transition-colors"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <form onSubmit={handleSubmit} className="space-y-4 text-xs">
-              <div className="space-y-1">
-                <label className="text-slate-300 font-semibold block">
-                  Nome Completo *
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={fullName}
-                  onChange={(e) => setFullName(e.target.value)}
-                  placeholder="Ex: João Baptista Silva"
-                  className="w-full p-3 rounded-xl bg-slate-950 border border-slate-700 text-slate-100 text-xs focus:border-emerald-500 focus:outline-hidden"
-                />
-              </div>
+            <form onSubmit={handleSubmit} className="flex flex-col flex-1 min-h-0">
+              <div className="overflow-y-auto pr-1.5 py-1 space-y-4 text-xs flex-1">
+                <div className="space-y-1">
+                  <label className="text-slate-300 font-semibold block">
+                    Nome Completo *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={fullName}
+                    onChange={(e) => setFullName(e.target.value)}
+                    placeholder="Ex: João Baptista Silva"
+                    className="w-full p-3 rounded-xl bg-slate-950 border border-slate-700 text-slate-100 text-xs focus:border-emerald-500 focus:outline-hidden"
+                  />
+                </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-1">
@@ -709,8 +711,9 @@ export function CandidatesManagement() {
                   </div>
                 </div>
               </div>
+            </div>
 
-              <div className="flex justify-end gap-3 pt-4 border-t border-slate-800">
+              <div className="flex justify-end gap-3 pt-3 mt-2 border-t border-slate-800 shrink-0">
                 <button
                   type="button"
                   onClick={resetForm}
@@ -732,9 +735,9 @@ export function CandidatesManagement() {
 
       {/* Modal: View Candidate History */}
       {viewHistoryCandidate && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-xs p-4">
-          <div className="w-full max-w-2xl bg-slate-900 border border-slate-700 rounded-3xl p-6 sm:p-8 shadow-2xl space-y-5">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-4">
+        <div className="fixed inset-0 z-50 flex items-start sm:items-center justify-center bg-slate-950/85 backdrop-blur-xs p-3 sm:p-4 overflow-y-auto">
+          <div className="w-full max-w-2xl bg-slate-900 border border-slate-700 rounded-3xl p-5 sm:p-7 shadow-2xl space-y-4 my-auto sm:my-8 max-h-[92vh] flex flex-col">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-3 shrink-0">
               <div>
                 <h3 className="text-base font-bold text-slate-100">
                   Histórico de Testes: {viewHistoryCandidate.fullName}
@@ -845,9 +848,9 @@ export function CandidatesManagement() {
 
       {/* Modal: Quick Test Authorization per Candidate */}
       {assignTestsCandidate && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-xs p-4 overflow-y-auto">
-          <div className="w-full max-w-xl bg-slate-900 border border-slate-700 rounded-3xl p-6 sm:p-8 shadow-2xl space-y-5 my-8">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-4">
+        <div className="fixed inset-0 z-50 flex items-start sm:items-center justify-center bg-slate-950/85 backdrop-blur-xs p-3 sm:p-4 overflow-y-auto">
+          <div className="w-full max-w-xl bg-slate-900 border border-slate-700 rounded-3xl p-5 sm:p-7 shadow-2xl space-y-4 my-auto sm:my-8 max-h-[92vh] flex flex-col">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-3 shrink-0">
               <div>
                 <div className="flex items-center gap-2">
                   <ShieldCheck className="w-5 h-5 text-emerald-400" />
@@ -967,9 +970,9 @@ export function CandidatesManagement() {
 
       {/* POSITIONS & CATEGORIES MANAGER MODAL */}
       {isPositionsManagerOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-xs p-4">
-          <div className="w-full max-w-2xl bg-[#091B30] border border-[#17365D] rounded-3xl p-6 sm:p-7 shadow-2xl space-y-5 animate-in fade-in zoom-in duration-150 text-xs">
-            <div className="flex items-center justify-between border-b border-[#17365D] pb-4">
+        <div className="fixed inset-0 z-50 flex items-start sm:items-center justify-center bg-slate-950/85 backdrop-blur-xs p-3 sm:p-4 overflow-y-auto">
+          <div className="w-full max-w-2xl bg-[#091B30] border border-[#17365D] rounded-3xl p-5 sm:p-7 shadow-2xl space-y-4 animate-in fade-in zoom-in duration-150 text-xs my-auto sm:my-8 max-h-[92vh] flex flex-col">
+            <div className="flex items-center justify-between border-b border-[#17365D] pb-3 shrink-0">
               <div className="flex items-center gap-2.5">
                 <div className="p-2 rounded-xl bg-sky-500/15 border border-sky-500/30 text-sky-400">
                   <Briefcase className="w-5 h-5" />

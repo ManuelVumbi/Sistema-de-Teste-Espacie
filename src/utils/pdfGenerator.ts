@@ -97,7 +97,7 @@ export function generateIndividualPdf(
     doc,
     pageWidth,
     "SISTEMA CORPORATIVO DE AVALIAÇÃO TÉCNICA E COMPETÊNCIAS",
-    "Luanda, Angola | www.espacie.co.ao",
+    "Luanda, Angola",
     {
       text: isApproved ? "APTO" : "NÃO APTO",
       isPositive: isApproved,
